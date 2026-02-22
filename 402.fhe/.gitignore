@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+build/
+out/
+.next/
+
+# hardhat
+artifacts/
+cache/
+typechain-types/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# env — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# deployment outputs (contain live contract addresses — commit these intentionally)
+# contracts/deployments/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
