@@ -1,70 +1,84 @@
 import Link from "next/link";
 
-const roles = [
-  {
-    title: "Buyer",
-    description: "Deposit USDC and call APIs. Pay per request — your balance stays encrypted on-chain.",
-    href: "/buyer",
-    cta: "Enter as Buyer",
-  },
-  {
-    title: "Merchant",
-    description: "List your API, set a price per call, and earn USDC. Your revenue stays encrypted.",
-    href: "/merchant",
-    cta: "Enter as Merchant",
-  },
-  {
-    title: "Operator",
-    description: "See what we see. All balances are encrypted — cryptographically, not by policy.",
-    href: "/operator",
-    cta: "View Operator Dashboard",
-  },
-];
-
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#fffaf7] flex flex-col items-center justify-center px-4 py-16">
-      <div className="text-center mb-14">
-        <h1 className="text-5xl font-bold text-[#1a1523] mb-4 tracking-tight">402.fhe</h1>
-        <p className="text-[#6b5e7a] text-lg max-w-lg mx-auto leading-relaxed">
-          The confidential API marketplace. Pay per call, settle on-chain.
-          Balances encrypted with{" "}
-          <a
-            href="https://www.zama.ai"
-            className="text-[#7c3aed] hover:underline"
-            target="_blank"
-            rel="noopener"
-          >
-            Zama fhEVM
-          </a>
-          .
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#0f0d1a] text-white overflow-x-hidden">
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
-        {roles.map((role) => (
-          <Link key={role.href} href={role.href}>
-            <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-7 h-full flex flex-col hover:border-[#7c3aed] hover:shadow-md transition-all cursor-pointer group">
-              <h2 className="text-xl font-semibold text-[#1a1523] mb-2 group-hover:text-[#7c3aed] transition-colors">
-                {role.title}
-              </h2>
-              <p className="text-[#6b5e7a] text-sm flex-1 mb-6 leading-relaxed">
-                {role.description}
-              </p>
-              <span className="text-[#7c3aed] text-sm font-medium">
-                {role.cta} →
-              </span>
+      {/* nav */}
+      <nav className="absolute top-0 left-0 right-0 z-20 px-6 py-5 flex items-center justify-between">
+        <span className="font-mono text-sm text-[#5a4f6a]">402.fhe</span>
+        <div className="flex items-center gap-6 text-sm text-[#5a4f6a]">
+          <Link href="/docs" className="hover:text-violet-400 transition-colors">docs</Link>
+          <Link href="/dapp" className="hover:text-violet-400 transition-colors">dApp</Link>
+        </div>
+      </nav>
+
+      {/* hero */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pb-24 pt-16">
+
+        {/* background grid */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(167,139,250,0.05) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(167,139,250,0.05) 1px, transparent 1px)
+            `,
+            backgroundSize: "48px 48px",
+          }}
+        />
+
+        {/* radial glow */}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          style={{
+            width: 600,
+            height: 600,
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 65%)",
+          }}
+        />
+
+        {/* SVG encryption ring */}
+        <div className="relative mb-12">
+          <svg width="220" height="220" viewBox="0 0 220 220" className="animate-spin-slow">
+            <circle cx="110" cy="110" r="100" fill="none" stroke="rgba(167,139,250,0.15)" strokeWidth="1" strokeDasharray="4 8" />
+            <circle cx="110" cy="110" r="72" fill="none" stroke="rgba(167,139,250,0.3)" strokeWidth="1.5" />
+            <circle cx="110" cy="110" r="100" fill="none" stroke="rgba(167,139,250,0.85)" strokeWidth="2" strokeDasharray="40 591" strokeLinecap="round" />
+            {[0, 60, 120, 180, 240, 300].map((deg) => {
+              const rad = (deg * Math.PI) / 180;
+              const x = 110 + 100 * Math.cos(rad);
+              const y = 110 + 100 * Math.sin(rad);
+              return <circle key={deg} cx={x} cy={y} r="3.5" fill="rgba(167,139,250,0.75)" />;
+            })}
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-1">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-violet-400">
+                <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span className="text-[9px] font-mono text-violet-400 tracking-widest opacity-80">x402</span>
             </div>
-          </Link>
-        ))}
-      </div>
+          </div>
+        </div>
 
-      <p className="mt-16 text-xs text-[#6b5e7a]">
-        Built for the{" "}
-        <a href="https://www.zama.ai/builders" className="hover:underline" target="_blank" rel="noopener">
-          Zama Builder Program
-        </a>
-      </p>
-    </main>
+        {/* headline */}
+        <div className="text-center max-w-3xl mx-auto relative z-10">
+          <h1 className="text-6xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.05]">
+            <span className="text-white">402.fhe</span>
+          </h1>
+
+          <p
+            className="text-lg max-w-xl mx-auto leading-relaxed mb-10 font-medium"
+            style={{ background: "linear-gradient(90deg, #c4b5fd 0%, #a78bfa 40%, #7c3aed 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+          >
+            private payments for public APIs
+          </p>
+
+        </div>
+      </section>
+
+    </div>
   );
 }

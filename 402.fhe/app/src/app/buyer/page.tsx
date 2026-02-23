@@ -7,6 +7,29 @@ import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
 
+function DepositSteps({ status }: { status: "idle" | "approving" | "depositing" | "done" }) {
+  const steps = ["Approve", "Deposit", "Encrypted", "Ready"];
+  const activeIndex = { idle: -1, approving: 0, depositing: 1, done: 3 }[status];
+  const displayIndex = status === "depositing" ? 2 : activeIndex;
+
+  return (
+    <div className="flex items-center gap-1 mb-5">
+      {steps.map((step, i) => (
+        <div key={step} className="flex items-center gap-1 flex-1">
+          <div className={`flex-1 h-1.5 rounded-full transition-all duration-500 ${
+            i <= displayIndex ? "bg-violet-500" : "bg-[#1e1730]"
+          }`} />
+          <span className={`text-xs whitespace-nowrap transition-colors duration-300 ${
+            i === displayIndex ? "text-violet-400 font-medium" : i < displayIndex ? "text-violet-600" : "text-[#5a4f6a]"
+          }`}>
+            {step}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function BuyerPage() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -66,81 +89,92 @@ export default function BuyerPage() {
   }[depositStatus];
 
   const apis = [
-    { id: 0, path: "/api/weather", name: "Weather API", description: "Real-time weather stub." },
-    { id: 1, path: "/api/inference", name: "Inference API", description: "AI model inference stub." },
+    { id: 0, path: "/api/weather", name: "Weather API", description: "Real-time weather data." },
+    { id: 1, path: "/api/inference", name: "Inference API", description: "AI model inference." },
   ];
 
   return (
-    <main className="min-h-screen bg-[#fffaf7] px-4 py-10">
-      <div className="max-w-2xl mx-auto">
-        <nav className="flex justify-between items-center mb-10">
-          <Link href="/" className="text-[#1a1523] font-semibold hover:text-[#7c3aed] transition-colors">
-            ← 402.fhe
-          </Link>
-          <ConnectButton />
-        </nav>
+    <main className="min-h-screen bg-[#0f0d1a] text-white">
+      {/* nav */}
+      <nav className="border-b border-[#1e1730] px-6 py-4 flex justify-between items-center">
+        <Link href="/" className="font-mono text-sm text-[#5a4f6a] hover:text-violet-400 transition-colors">
+          ← 402.fhe
+        </Link>
+        <ConnectButton />
+      </nav>
 
-        <h1 className="text-2xl font-bold text-[#1a1523] mb-8">Buyer</h1>
+      <div className="max-w-2xl mx-auto px-6 py-12">
+        <div className="mb-10">
+          <span className="text-[10px] font-mono text-violet-500 tracking-widest uppercase mb-2 block">agent / user</span>
+          <h1 className="text-3xl font-bold text-white">Buyer</h1>
+        </div>
 
-        {/* deposit section */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-[#1a1523] mb-4">Deposit USDC</h2>
-          <p className="text-sm text-[#6b5e7a] mb-4">
+        {/* deposit */}
+        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
+          <h2 className="text-base font-semibold text-white mb-2">Deposit USDC</h2>
+          <p className="text-sm text-[#5a4f6a] mb-5">
             Deposit once — your balance is encrypted on-chain. Each API call deducts from it with no extra gas.
           </p>
+          {depositStatus !== "idle" && <DepositSteps status={depositStatus} />}
           <form onSubmit={handleDeposit} className="flex gap-3">
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Amount (e.g. 10)"
-              className="flex-1 border border-[#e8e0d8] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent"
+              className="flex-1 bg-[#0f0d1a] border border-[#1e1730] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-transparent"
             />
             <button
               type="submit"
               disabled={depositStatus !== "idle" || !isConnected}
-              className="bg-[#7c3aed] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#6d28d9] transition-colors disabled:opacity-50"
+              className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30"
             >
               {depositLabel}
             </button>
           </form>
           {depositStatus === "done" && (
-            <p className="mt-3 text-sm text-[#059669]">Deposit confirmed. Your balance is now encrypted on-chain.</p>
+            <p className="mt-3 text-sm text-emerald-400">Deposit confirmed. Your balance is now encrypted on-chain.</p>
           )}
           {!isConnected && (
-            <p className="mt-3 text-sm text-[#6b5e7a]">Connect your wallet to deposit.</p>
+            <p className="mt-3 text-sm text-[#5a4f6a]">Connect your wallet to deposit.</p>
           )}
         </div>
 
-        {/* call api section */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-[#1a1523] mb-4">Call APIs</h2>
-          <p className="text-sm text-[#6b5e7a] mb-6">
-            Each call signs a payment proof with your wallet — no gas required. Settlement happens on-chain in the background.
+        {/* call APIs */}
+        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6">
+          <h2 className="text-base font-semibold text-white mb-2">Call APIs</h2>
+          <p className="text-sm text-[#5a4f6a] mb-6">
+            Each call signs a payment proof — no gas. Settlement happens on-chain in the background.
           </p>
           <div className="flex flex-col gap-4">
             {apis.map((api) => (
-              <div key={api.id} className="border border-[#e8e0d8] rounded-xl p-5">
+              <div key={api.id} className="border border-[#1e1730] rounded-xl p-5">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="font-medium text-[#1a1523]">{api.name}</h3>
-                    <p className="text-sm text-[#6b5e7a]">{api.description}</p>
+                    <h3 className="font-medium text-white">{api.name}</h3>
+                    <p className="text-sm text-[#5a4f6a]">{api.description}</p>
                   </div>
                   <button
                     onClick={() => handleCallApi(api.path, api.id)}
                     disabled={loading[api.id] || !isConnected}
-                    className="bg-[#7c3aed] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#6d28d9] transition-colors disabled:opacity-50 shrink-0 ml-4"
+                    className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30 shrink-0 ml-4"
                   >
                     {loading[api.id] ? "Calling..." : "Call API"}
                   </button>
                 </div>
                 {!!results[api.id] && (
-                  <pre className="bg-[#f3eeff] rounded-lg p-4 text-sm font-mono text-[#1a1523] overflow-auto">
-                    {JSON.stringify(results[api.id], null, 2)}
-                  </pre>
+                  <div className="mt-4 bg-[#0f0d1a] border border-[#1e1730] rounded-xl p-4 animate-fadein">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                      <span className="text-xs text-emerald-400 font-medium">Response received · payment settled</span>
+                    </div>
+                    <pre className="text-xs font-mono text-[#9d8fae] overflow-auto max-h-48 leading-relaxed">
+                      {JSON.stringify(results[api.id], null, 2)}
+                    </pre>
+                  </div>
                 )}
                 {errors[api.id] && (
-                  <p className="text-sm text-red-600 mt-2">{errors[api.id]}</p>
+                  <p className="text-sm text-red-400 mt-2">{errors[api.id]}</p>
                 )}
               </div>
             ))}

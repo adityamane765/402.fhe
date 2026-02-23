@@ -1,9 +1,29 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useWriteContract } from "wagmi";
 import { CONTRACT_ADDRESS, MARKETPLACE_ABI } from "@/lib/contract";
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
+
+function CipherBadge() {
+  const chars = "0123456789abcdef";
+  const [text, setText] = useState("a3f8b2c1d9e4f0a7");
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setText(
+        Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
+      );
+    }, 120);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <span className="inline-flex items-center gap-2 bg-violet-950/50 text-violet-400 text-xs font-mono px-3 py-1.5 rounded-full border border-violet-900/50 animate-cipher">
+      🔒 0x{text}
+    </span>
+  );
+}
 
 export default function MerchantPage() {
   const { isConnected } = useAccount();
@@ -39,81 +59,65 @@ export default function MerchantPage() {
     setWithdrawalRequested(true);
   };
 
+  const inputCls = "w-full bg-[#0f0d1a] border border-[#1e1730] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-transparent";
+
   return (
-    <main className="min-h-screen bg-[#fffaf7] px-4 py-10">
-      <div className="max-w-2xl mx-auto">
-        <nav className="flex justify-between items-center mb-10">
-          <Link href="/" className="text-[#1a1523] font-semibold hover:text-[#7c3aed] transition-colors">
-            ← 402.fhe
-          </Link>
-          <ConnectButton />
-        </nav>
+    <main className="min-h-screen bg-[#0f0d1a] text-white">
+      <nav className="border-b border-[#1e1730] px-6 py-4 flex justify-between items-center">
+        <Link href="/" className="font-mono text-sm text-[#5a4f6a] hover:text-violet-400 transition-colors">
+          ← 402.fhe
+        </Link>
+        <ConnectButton />
+      </nav>
 
-        <h1 className="text-2xl font-bold text-[#1a1523] mb-8">Merchant</h1>
+      <div className="max-w-2xl mx-auto px-6 py-12">
+        <div className="mb-10">
+          <span className="text-[10px] font-mono text-emerald-500 tracking-widest uppercase mb-2 block">API provider</span>
+          <h1 className="text-3xl font-bold text-white">Merchant</h1>
+        </div>
 
-        {/* list api */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-[#1a1523] mb-4">List an API</h2>
-          <p className="text-sm text-[#6b5e7a] mb-5">
+        {/* list API */}
+        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
+          <h2 className="text-base font-semibold text-white mb-2">List an API</h2>
+          <p className="text-sm text-[#5a4f6a] mb-5">
             Set your price per call in USDC. Buyers see the price — only your earnings stay private.
           </p>
           <form onSubmit={handleListApi} className="flex flex-col gap-4">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="API name (e.g. Weather API)"
-              className="border border-[#e8e0d8] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent"
-            />
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Short description"
-              rows={3}
-              className="border border-[#e8e0d8] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent resize-none"
-            />
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="Price per call in USDC (e.g. 2.00)"
-              step="0.01"
-              className="border border-[#e8e0d8] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent"
-            />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="API name (e.g. Weather API)" className={inputCls} />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short description" rows={3} className={`${inputCls} resize-none`} />
+            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price per call in USDC (e.g. 2.00)" step="0.01" className={inputCls} />
             <button
               type="submit"
               disabled={isListing || !isConnected}
-              className="bg-[#7c3aed] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#6d28d9] transition-colors disabled:opacity-50"
+              className="border border-emerald-800/60 text-emerald-400 hover:bg-emerald-950/30 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30"
             >
               {isListing ? "Listing..." : "List API"}
             </button>
           </form>
           {listed && (
-            <p className="mt-3 text-sm text-[#059669]">API listed successfully. It is now live on the marketplace.</p>
+            <p className="mt-3 text-sm text-emerald-400">API listed. It is now live on the marketplace.</p>
           )}
         </div>
 
         {/* revenue */}
-        <div className="bg-white rounded-2xl border border-[#e8e0d8] shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-[#1a1523] mb-4">Revenue</h2>
-          <div className="flex items-center justify-between p-4 bg-[#fffaf7] rounded-xl border border-[#e8e0d8] mb-5">
-            <span className="text-sm text-[#6b5e7a]">Your earnings</span>
-            <span className="inline-flex items-center gap-1.5 bg-[#f3eeff] text-[#7c3aed] text-xs font-mono px-3 py-1.5 rounded-full">
-              🔒 encrypted
-            </span>
+        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6">
+          <h2 className="text-base font-semibold text-white mb-4">Revenue</h2>
+          <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-5">
+            <span className="text-sm text-[#5a4f6a]">Your earnings</span>
+            <CipherBadge />
           </div>
-          <p className="text-xs text-[#6b5e7a] mb-5">
-            Merchant revenue is stored as an encrypted value on-chain. Only you can decrypt it via reencryption — coming in v2.
+          <p className="text-xs text-[#3a2f4a] mb-5">
+            Revenue is stored as an encrypted euint64 on-chain. Only you can decrypt it via reencryption — coming in v2.
           </p>
           <button
             onClick={handleWithdrawal}
             disabled={isWithdrawing || !isConnected || withdrawalRequested}
-            className="border border-[#7c3aed] text-[#7c3aed] rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#f3eeff] transition-colors disabled:opacity-50 w-full"
+            className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30 w-full"
           >
             {isWithdrawing ? "Requesting..." : withdrawalRequested ? "Withdrawal Requested ✓" : "Request Withdrawal"}
           </button>
           {withdrawalRequested && (
-            <p className="mt-3 text-sm text-[#6b5e7a]">
+            <p className="mt-3 text-sm text-[#5a4f6a]">
               Request submitted. The operator will process your withdrawal within 24 hours.
             </p>
           )}
