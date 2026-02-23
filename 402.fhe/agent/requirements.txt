@@ -1,0 +1,4 @@
+requests
+eth-account
+web3
+python-dotenv
