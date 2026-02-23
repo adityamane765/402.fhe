@@ -1,3 +1,12 @@
+// (base) adityamane@Adityas-MacBook-Air-2 contracts % npx hardhat run scripts/deploy.ts --network sepolia
+// Compiled 2 Solidity files successfully (evm target: paris).
+// Deploying 402.fhe with deployer: 0xd5720Ed6e70a128C025D0C284874cd1e33B39688
+// waiting for confirmations...
+// marketplace Address: 0x4Ff4a147f6e052398B8C0962c6cd4Fa4f34d2826
+// Setting middleware to: 0xd5720Ed6e70a128C025D0C284874cd1e33B39688
+// Middleware set successfully
+// saved in deployments/sepolia.json
+
 import { ethers } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
