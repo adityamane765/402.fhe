@@ -1,0 +1,4 @@
+{
+  "0": { "path": "/api/weather", "endpoint": "https://wttr.in/Paris?format=j1" },
+  "1": { "path": "/api/inference", "endpoint": "https://httpbin.org/get" }
+}

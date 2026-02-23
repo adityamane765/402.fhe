@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fhe402-middleware
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: SEPOLIA_RPC_URL
+        sync: false
+      - key: MIDDLEWARE_PRIVATE_KEY
+        sync: false
+      - key: CONTRACT_ADDRESS
+        sync: false
