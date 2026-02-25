@@ -9,6 +9,15 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+// allow browser requests from any origin — needed for frontend on vercel/localhost
+app.use((_req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Payment");
+  if (_req.method === "OPTIONS") { res.sendStatus(204); return; }
+  next();
+});
+
 const routesPath = path.resolve(__dirname, "../../routes.json");
 
 // merchant self-registration
