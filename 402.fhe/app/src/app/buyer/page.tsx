@@ -1,11 +1,22 @@
 "use client";
-import { useState } from "react";
-import { useAccount, useWriteContract, useSignMessage } from "wagmi";
+import { useState, useEffect, Suspense } from "react";
+import { useAccount, useWriteContract, useSignMessage, useReadContract, useReadContracts } from "wagmi";
 import { parseUnits } from "viem";
 import { callApi } from "@/lib/middleware";
 import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib/contract";
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+
+const MIDDLEWARE_URL = process.env.NEXT_PUBLIC_MIDDLEWARE_URL || "http://localhost:3001";
+
+interface ApiEntry {
+  id: number;
+  name: string;
+  description: string;
+  price: bigint;
+  path: string;
+}
 
 function DepositSteps({ status }: { status: "idle" | "approving" | "depositing" | "done" }) {
   const steps = ["Approve", "Deposit", "Encrypted", "Ready"];
@@ -30,14 +41,56 @@ function DepositSteps({ status }: { status: "idle" | "approving" | "depositing" 
   );
 }
 
-export default function BuyerPage() {
+function BuyerPageInner() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const searchParams = useSearchParams();
+
   const [amount, setAmount] = useState("");
   const [depositStatus, setDepositStatus] = useState<"idle" | "approving" | "depositing" | "done">("idle");
   const [results, setResults] = useState<{ [key: number]: unknown }>({});
   const [loading, setLoading] = useState<{ [key: number]: boolean }>({});
   const [errors, setErrors] = useState<{ [key: number]: string }>({});
+  const [routes, setRoutes] = useState<Record<string, { path: string }>>({});
+
+  const focusedApiId = searchParams.get("apiId") ? Number(searchParams.get("apiId")) : null;
+
+  // fetch route registry from middleware so we know the path for each apiId
+  useEffect(() => {
+    fetch(`${MIDDLEWARE_URL}/routes`)
+      .then((r) => r.json())
+      .then(setRoutes)
+      .catch(() => {});
+  }, []);
+
+  const { data: nextApiId } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: MARKETPLACE_ABI,
+    functionName: "nextApiId",
+  });
+
+  const count = nextApiId ? Number(nextApiId) : 0;
+
+  const { data: listingResults, isLoading: apisLoading } = useReadContracts({
+    contracts: Array.from({ length: count }, (_, i) => ({
+      address: CONTRACT_ADDRESS,
+      abi: MARKETPLACE_ABI,
+      functionName: "listings" as const,
+      args: [BigInt(i)] as const,
+    })),
+    query: { enabled: count > 0 },
+  });
+
+  const apis: ApiEntry[] = (listingResults ?? [])
+    .map((result, i) => {
+      if (result.status !== "success" || !result.result) return null;
+      const [, name, description, price, active] = result.result as [string, string, string, bigint, boolean];
+      if (!active) return null;
+      const path = routes[String(i)]?.path;
+      if (!path) return null; // only show apis with a registered path
+      return { id: i, name, description, price, path };
+    })
+    .filter(Boolean) as ApiEntry[];
 
   const { writeContractAsync: approve } = useWriteContract();
   const { writeContractAsync: deposit } = useWriteContract();
@@ -88,17 +141,11 @@ export default function BuyerPage() {
     done: "Deposited ✓",
   }[depositStatus];
 
-  const apis = [
-    { id: 0, path: "/api/weather", name: "Weather API", description: "Real-time weather data." },
-    { id: 1, path: "/api/inference", name: "Inference API", description: "AI model inference." },
-  ];
-
   return (
     <main className="min-h-screen bg-[#0f0d1a] text-white">
-      {/* nav */}
       <nav className="border-b border-[#1e1730] px-6 py-4 flex justify-between items-center">
-        <Link href="/" className="font-mono text-sm text-[#5a4f6a] hover:text-violet-400 transition-colors">
-          ← 402.fhe
+        <Link href="/marketplace" className="font-mono text-sm text-[#5a4f6a] hover:text-violet-400 transition-colors">
+          ← marketplace
         </Link>
         <ConnectButton />
       </nav>
@@ -146,21 +193,46 @@ export default function BuyerPage() {
           <p className="text-sm text-[#5a4f6a] mb-6">
             Each call signs a payment proof — no gas. Settlement happens on-chain in the background.
           </p>
+
+          {apisLoading && (
+            <p className="text-sm text-[#5a4f6a]">loading APIs from chain...</p>
+          )}
+
+          {!apisLoading && apis.length === 0 && (
+            <p className="text-sm text-[#5a4f6a]">
+              No APIs available yet. <Link href="/marketplace" className="text-violet-400 hover:underline">Browse marketplace →</Link>
+            </p>
+          )}
+
           <div className="flex flex-col gap-4">
             {apis.map((api) => (
-              <div key={api.id} className="border border-[#1e1730] rounded-xl p-5">
+              <div
+                key={api.id}
+                className={`border rounded-xl p-5 transition-colors ${
+                  focusedApiId === api.id ? "border-violet-700/60 bg-violet-950/20" : "border-[#1e1730]"
+                }`}
+              >
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="font-medium text-white">{api.name}</h3>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[10px] font-mono text-[#3a2f4a]">#{api.id}</span>
+                      <h3 className="font-medium text-white">{api.name}</h3>
+                    </div>
                     <p className="text-sm text-[#5a4f6a]">{api.description}</p>
+                    <span className="text-xs font-mono text-[#5a4f6a] mt-1 inline-block">{api.path}</span>
                   </div>
-                  <button
-                    onClick={() => handleCallApi(api.path, api.id)}
-                    disabled={loading[api.id] || !isConnected}
-                    className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30 shrink-0 ml-4"
-                  >
-                    {loading[api.id] ? "Calling..." : "Call API"}
-                  </button>
+                  <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
+                    <span className="text-sm font-mono text-violet-400">
+                      ${(Number(api.price) / 1_000_000).toFixed(2)}
+                    </span>
+                    <button
+                      onClick={() => handleCallApi(api.path, api.id)}
+                      disabled={loading[api.id] || !isConnected}
+                      className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
+                    >
+                      {loading[api.id] ? "Calling..." : "Call API"}
+                    </button>
+                  </div>
                 </div>
                 {!!results[api.id] && (
                   <div className="mt-4 bg-[#0f0d1a] border border-[#1e1730] rounded-xl p-4 animate-fadein">
@@ -182,5 +254,13 @@ export default function BuyerPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function BuyerPage() {
+  return (
+    <Suspense>
+      <BuyerPageInner />
+    </Suspense>
   );
 }

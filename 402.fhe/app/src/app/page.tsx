@@ -8,6 +8,7 @@ export default function Home() {
       <nav className="absolute top-0 left-0 right-0 z-20 px-6 py-5 flex items-center justify-between">
         <span className="font-mono text-sm text-[#5a4f6a]">402.fhe</span>
         <div className="flex items-center gap-6 text-sm text-[#5a4f6a]">
+          <Link href="/marketplace" className="hover:text-violet-400 transition-colors">marketplace</Link>
           <Link href="/docs" className="hover:text-violet-400 transition-colors">docs</Link>
           <Link href="/dapp" className="hover:text-violet-400 transition-colors">dApp</Link>
         </div>

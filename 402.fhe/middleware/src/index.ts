@@ -20,6 +20,16 @@ app.use((_req, res, next) => {
 
 const routesPath = path.resolve(__dirname, "../../routes.json");
 
+// expose current route registry so frontend can map apiId → path
+app.get("/routes", (_req, res) => {
+  try {
+    const routes = JSON.parse(fs.readFileSync(routesPath, "utf-8"));
+    res.json(routes);
+  } catch {
+    res.status(500).json({ error: "failed to read routes" });
+  }
+});
+
 // merchant self-registration
 // NOTE: new registrations only take effect for new requests.
 // Already-loaded routes in demoApi.ts require a process restart to update.
