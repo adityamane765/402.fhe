@@ -18,6 +18,7 @@ interface Listing {
 
 export default function MarketplacePage() {
   const [routes, setRoutes] = useState<Record<string, { path: string; endpoint: string }>>({});
+  const [search, setSearch] = useState("");
 
   // fetch route registry from middleware
   useEffect(() => {
@@ -45,7 +46,7 @@ export default function MarketplacePage() {
     query: { enabled: count > 0 },
   });
 
-  const listings: Listing[] = (listingResults ?? [])
+  const allListings: Listing[] = (listingResults ?? [])
     .map((result, i) => {
       if (result.status !== "success" || !result.result) return null;
       const [merchant, name, description, price, active] = result.result as [string, string, string, bigint, boolean];
@@ -61,6 +62,14 @@ export default function MarketplacePage() {
       };
     })
     .filter(Boolean) as Listing[];
+
+  const q = search.trim().toLowerCase();
+  const listings = q
+    ? allListings.filter((l) =>
+        l.name.toLowerCase().includes(q) ||
+        String(l.id) === q
+      )
+    : allListings;
 
   return (
     <main className="min-h-screen bg-[#0f0d1a] text-white">
@@ -78,16 +87,29 @@ export default function MarketplacePage() {
           <span className="text-[10px] font-mono text-violet-500 tracking-widest uppercase mb-2 block">live on sepolia</span>
           <h1 className="text-3xl font-bold text-white">API Marketplace</h1>
           <p className="text-sm text-[#5a4f6a] mt-2">
-            {count > 0 ? `${listings.length} active API${listings.length !== 1 ? "s" : ""}` : "loading..."}
+            {count > 0 ? `${allListings.length} active API${allListings.length !== 1 ? "s" : ""}` : "loading..."}
           </p>
+        </div>
+
+        <div className="mb-6">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or API ID..."
+            className="w-full bg-[#12102a] border border-[#1e1730] rounded-xl px-4 py-3 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-transparent"
+          />
         </div>
 
         {isLoading && (
           <div className="text-sm text-[#5a4f6a]">fetching listings from chain...</div>
         )}
 
-        {!isLoading && listings.length === 0 && count > 0 && (
+        {!isLoading && allListings.length === 0 && count > 0 && (
           <div className="text-sm text-[#5a4f6a]">no active listings found.</div>
+        )}
+        {!isLoading && allListings.length > 0 && listings.length === 0 && (
+          <div className="text-sm text-[#5a4f6a]">no results for &quot;{search}&quot;</div>
         )}
 
         {!isLoading && count === 0 && !isLoading && (

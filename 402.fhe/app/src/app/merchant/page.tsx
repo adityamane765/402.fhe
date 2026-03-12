@@ -3,37 +3,40 @@ import { useState, useEffect } from "react";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
 import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib/contract";
+import { useUserDecrypt } from "@/lib/useUserDecrypt";
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
 
+interface MyApi {
+  id: number;
+  name: string;
+  price: bigint;
+  blockNumber: string;
+}
+
 function CipherBadge() {
-  const chars = "0123456789abcdef";
-  const [text, setText] = useState("a3f8b2c1d9e4f0a7");
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setText(
-        Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
-      );
-    }, 120);
-    return () => clearInterval(id);
-  }, []);
-
   return (
-    <span className="inline-flex items-center gap-2 bg-violet-950/50 text-violet-400 text-xs font-mono px-3 py-1.5 rounded-full border border-violet-900/50 animate-cipher">
-      🔒 0x{text}
+    <span className="inline-flex items-center gap-2 bg-violet-950/50 text-violet-400 text-xs font-mono px-3 py-1.5 rounded-full border border-violet-900/50">
+      🔒 ••••••••
     </span>
   );
 }
 
 export default function MerchantPage() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const publicClient = usePublicClient();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [listed, setListed] = useState(false);
   const [withdrawalRequested, setWithdrawalRequested] = useState(false);
+  const [myApis, setMyApis] = useState<MyApi[]>([]);
+  const [myApisLoading, setMyApisLoading] = useState(false);
+  const [clearRevenue, setClearRevenue] = useState<bigint | null>(null);
+  const { decryptRevenue, loading: decryptLoading, error: decryptError } = useUserDecrypt();
 
   // registration state
   const [newApiId, setNewApiId] = useState<number | null>(null);
@@ -41,6 +44,25 @@ export default function MerchantPage() {
   const [regPath, setRegPath] = useState("");
   const [regStatus, setRegStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [regError, setRegError] = useState("");
+
+  // fetch this merchant's listings from ApiListed events
+  useEffect(() => {
+    if (!publicClient || !address || !CONTRACT_ADDRESS) return;
+    setMyApisLoading(true);
+    publicClient.getLogs({
+      address: CONTRACT_ADDRESS,
+      event: parseAbiItem("event ApiListed(uint256 indexed id, address indexed merchant, string name, uint64 price)"),
+      args: { merchant: address },
+      fromBlock: BigInt(10425000),
+    }).then((logs) => {
+      setMyApis(logs.map((l) => ({
+        id: Number(l.args.id ?? 0),
+        name: String(l.args.name ?? ""),
+        price: BigInt(l.args.price ?? 0),
+        blockNumber: String(l.blockNumber),
+      })));
+    }).catch(() => {}).finally(() => setMyApisLoading(false));
+  }, [publicClient, address]);
 
   const { writeContractAsync: listApi, isPending: isListing } = useWriteContract();
   const { writeContractAsync: requestWithdrawal, isPending: isWithdrawing } = useWriteContract();
@@ -194,12 +216,31 @@ export default function MerchantPage() {
         {/* revenue */}
         <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6">
           <h2 className="text-base font-semibold text-white mb-4">Revenue</h2>
-          <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-5">
+          <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-4">
             <span className="text-sm text-[#5a4f6a]">Your earnings</span>
-            <CipherBadge />
+            {clearRevenue !== null ? (
+              <span className="text-sm font-mono text-emerald-400">
+                ${(Number(clearRevenue) / 1_000_000).toFixed(6)} USDC
+              </span>
+            ) : (
+              <CipherBadge />
+            )}
           </div>
+          <button
+            onClick={async () => {
+              if (address) {
+                const val = await decryptRevenue(address);
+                if (val !== null) setClearRevenue(val);
+              }
+            }}
+            disabled={decryptLoading || !isConnected}
+            className="w-full border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2 text-sm transition-colors disabled:opacity-30 mb-4"
+          >
+            {decryptLoading ? "Signing..." : clearRevenue !== null ? "Refresh Revenue" : "Reveal Revenue"}
+          </button>
+          {decryptError && <p className="mb-3 text-xs text-red-400">{decryptError}</p>}
           <p className="text-xs text-[#3a2f4a] mb-5">
-            Revenue is stored as an encrypted euint64 on-chain. Only you can decrypt it via reencryption — coming in v2.
+            Revenue is stored as an encrypted euint64. Sign with your wallet — the relayer decrypts only for you.
           </p>
           <button
             onClick={handleWithdrawal}
@@ -214,6 +255,39 @@ export default function MerchantPage() {
             </p>
           )}
         </div>
+
+        {/* my APIs */}
+        {mounted && isConnected && (
+          <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden mt-6">
+            <div className="px-6 py-4 border-b border-[#1e1730] flex items-center gap-2">
+              <h2 className="text-sm font-medium text-white">My Listed APIs</h2>
+              <span className="ml-auto text-xs text-[#3a2f4a] font-mono">{myApis.length} total</span>
+            </div>
+            {myApisLoading && (
+              <p className="px-6 py-6 text-sm text-[#3a2f4a] text-center">Loading from chain...</p>
+            )}
+            {!myApisLoading && myApis.length === 0 && (
+              <p className="px-6 py-6 text-sm text-[#3a2f4a] text-center">No APIs listed yet.</p>
+            )}
+            <div className="divide-y divide-[#1e1730]">
+              {myApis.map((api) => (
+                <div key={api.id} className="px-6 py-4 flex items-center gap-4">
+                  <span className="text-[10px] font-mono text-[#3a2f4a]">#{api.id}</span>
+                  <span className="text-sm text-white flex-1">{api.name}</span>
+                  <span className="text-xs font-mono text-violet-400">
+                    ${(Number(api.price) / 1_000_000).toFixed(2)}/call
+                  </span>
+                  <Link
+                    href={`/marketplace`}
+                    className="text-xs text-[#5a4f6a] hover:text-violet-400 transition-colors"
+                  >
+                    view →
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

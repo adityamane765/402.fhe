@@ -18,7 +18,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-const routesPath = path.resolve(__dirname, "../../routes.json");
+const routesPath = path.resolve(__dirname, "../routes.json");
 
 // expose current route registry so frontend can map apiId → path
 app.get("/routes", (_req, res) => {

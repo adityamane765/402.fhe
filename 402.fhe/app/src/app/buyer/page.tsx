@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useAccount, useWriteContract, useSignMessage, useReadContract, useReadContracts } from "wagmi";
-import { parseUnits } from "viem";
+import { useAccount, useWriteContract, useSignMessage, useReadContract, useReadContracts, usePublicClient } from "wagmi";
+import { parseUnits, parseAbiItem } from "viem";
 import { callApi } from "@/lib/middleware";
 import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib/contract";
+import { useUserDecrypt } from "@/lib/useUserDecrypt";
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -16,6 +17,20 @@ interface ApiEntry {
   description: string;
   price: bigint;
   path: string;
+}
+
+interface CallRecord {
+  apiId: string;
+  blockNumber: string;
+  txHash: string;
+}
+
+function CipherBadge() {
+  return (
+    <span className="inline-flex items-center gap-2 bg-violet-950/50 text-violet-400 text-xs font-mono px-2.5 py-1 rounded-full border border-violet-900/50">
+      🔒 ••••••••••••••••
+    </span>
+  );
 }
 
 function DepositSteps({ status }: { status: "idle" | "approving" | "depositing" | "done" }) {
@@ -44,7 +59,11 @@ function DepositSteps({ status }: { status: "idle" | "approving" | "depositing" 
 function BuyerPageInner() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const publicClient = usePublicClient();
   const searchParams = useSearchParams();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const [amount, setAmount] = useState("");
   const [depositStatus, setDepositStatus] = useState<"idle" | "approving" | "depositing" | "done">("idle");
@@ -52,16 +71,39 @@ function BuyerPageInner() {
   const [loading, setLoading] = useState<{ [key: number]: boolean }>({});
   const [errors, setErrors] = useState<{ [key: number]: string }>({});
   const [routes, setRoutes] = useState<Record<string, { path: string }>>({});
+  const [callHistory, setCallHistory] = useState<CallRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [withdrawalRequested, setWithdrawalRequested] = useState(false);
+  const [clearBalance, setClearBalance] = useState<bigint | null>(null);
+  const { decryptBalance, loading: decryptLoading, error: decryptError } = useUserDecrypt();
 
   const focusedApiId = searchParams.get("apiId") ? Number(searchParams.get("apiId")) : null;
 
-  // fetch route registry from middleware so we know the path for each apiId
+  // fetch route registry from middleware
   useEffect(() => {
     fetch(`${MIDDLEWARE_URL}/routes`)
       .then((r) => r.json())
       .then(setRoutes)
       .catch(() => {});
   }, []);
+
+  // fetch call history from CallSettled events for this buyer
+  useEffect(() => {
+    if (!publicClient || !address || !CONTRACT_ADDRESS) return;
+    setHistoryLoading(true);
+    publicClient.getLogs({
+      address: CONTRACT_ADDRESS,
+      event: parseAbiItem("event CallSettled(uint256 indexed apiId, address indexed buyer)"),
+      args: { buyer: address },
+      fromBlock: BigInt(10425000),
+    }).then((logs) => {
+      setCallHistory(logs.map((l) => ({
+        apiId: String(l.args.apiId ?? "?"),
+        blockNumber: String(l.blockNumber),
+        txHash: l.transactionHash ?? "",
+      })));
+    }).catch(() => {}).finally(() => setHistoryLoading(false));
+  }, [publicClient, address]);
 
   const { data: nextApiId } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -87,13 +129,14 @@ function BuyerPageInner() {
       const [, name, description, price, active] = result.result as [string, string, string, bigint, boolean];
       if (!active) return null;
       const path = routes[String(i)]?.path;
-      if (!path) return null; // only show apis with a registered path
+      if (!path) return null;
       return { id: i, name, description, price, path };
     })
     .filter(Boolean) as ApiEntry[];
 
   const { writeContractAsync: approve } = useWriteContract();
   const { writeContractAsync: deposit } = useWriteContract();
+  const { writeContractAsync: requestWithdrawal, isPending: isWithdrawing } = useWriteContract();
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +161,15 @@ function BuyerPageInner() {
     } catch {
       setDepositStatus("idle");
     }
+  };
+
+  const handleWithdrawal = async () => {
+    await requestWithdrawal({
+      address: CONTRACT_ADDRESS,
+      abi: MARKETPLACE_ABI,
+      functionName: "requestWithdrawal",
+    });
+    setWithdrawalRequested(true);
   };
 
   const handleCallApi = async (path: string, apiId: number) => {
@@ -156,6 +208,56 @@ function BuyerPageInner() {
           <h1 className="text-3xl font-bold text-white">Buyer</h1>
         </div>
 
+        {/* encrypted balance */}
+        {mounted && isConnected && (
+          <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-base font-semibold text-white">Your Balance</h2>
+              <span className="text-[10px] font-mono text-[#3a2f4a] uppercase tracking-widest">encrypted on-chain</span>
+            </div>
+            <p className="text-xs text-[#5a4f6a] mb-4">
+              Only you can decrypt this. Sign with your wallet to reveal your balance — the operator never sees it.
+            </p>
+            <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-4">
+              <span className="text-sm text-[#5a4f6a]">Available balance</span>
+              {clearBalance !== null ? (
+                <span className="text-sm font-mono text-emerald-400">
+                  ${(Number(clearBalance) / 1_000_000).toFixed(6)} USDC
+                </span>
+              ) : (
+                <CipherBadge />
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  if (address) {
+                    const val = await decryptBalance(address);
+                    if (val !== null) setClearBalance(val);
+                  }
+                }}
+                disabled={decryptLoading}
+                className="flex-1 border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
+              >
+                {decryptLoading ? "Signing..." : clearBalance !== null ? "Refresh Balance" : "Reveal Balance"}
+              </button>
+              <button
+                onClick={handleWithdrawal}
+                disabled={isWithdrawing || withdrawalRequested}
+                className="flex-1 border border-[#1e1730] text-[#5a4f6a] hover:text-violet-400 hover:border-violet-800/60 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
+              >
+                {isWithdrawing ? "Requesting..." : withdrawalRequested ? "Withdrawal Requested ✓" : "Request Withdrawal"}
+              </button>
+            </div>
+            {decryptError && <p className="mt-2 text-xs text-red-400">{decryptError}</p>}
+            {withdrawalRequested && (
+              <p className="mt-2 text-xs text-[#5a4f6a]">
+                Submitted. The operator will process your withdrawal off-chain via KMS decryption.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* deposit */}
         <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
           <h2 className="text-base font-semibold text-white mb-2">Deposit USDC</h2>
@@ -188,7 +290,7 @@ function BuyerPageInner() {
         </div>
 
         {/* call APIs */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6">
+        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
           <h2 className="text-base font-semibold text-white mb-2">Call APIs</h2>
           <p className="text-sm text-[#5a4f6a] mb-6">
             Each call signs a payment proof — no gas. Settlement happens on-chain in the background.
@@ -235,12 +337,12 @@ function BuyerPageInner() {
                   </div>
                 </div>
                 {!!results[api.id] && (
-                  <div className="mt-4 bg-[#0f0d1a] border border-[#1e1730] rounded-xl p-4 animate-fadein">
+                  <div className="mt-4 bg-[#0f0d1a] border border-[#1e1730] rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
                       <span className="text-xs text-emerald-400 font-medium">Response received · payment settled</span>
                     </div>
-                    <pre className="text-xs font-mono text-[#9d8fae] overflow-auto max-h-48 leading-relaxed">
+                    <pre className="text-xs font-mono text-[#9d8fae] overflow-auto max-h-48 leading-relaxed scrollbar-none" style={{ scrollbarWidth: "none" }}>
                       {JSON.stringify(results[api.id], null, 2)}
                     </pre>
                   </div>
@@ -252,6 +354,41 @@ function BuyerPageInner() {
             ))}
           </div>
         </div>
+
+        {/* call history */}
+        {mounted && isConnected && (
+          <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#1e1730] flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse inline-block" />
+              <h2 className="text-sm font-medium text-white">Call History</h2>
+              <span className="ml-auto text-xs text-[#3a2f4a] font-mono">{callHistory.length} total</span>
+            </div>
+            {historyLoading && (
+              <p className="px-6 py-6 text-sm text-[#3a2f4a] text-center">Loading from chain...</p>
+            )}
+            {!historyLoading && callHistory.length === 0 && (
+              <p className="px-6 py-6 text-sm text-[#3a2f4a] text-center">No settled calls yet.</p>
+            )}
+            <div className="divide-y divide-[#1e1730] max-h-64 overflow-y-auto">
+              {callHistory.map((c, i) => (
+                <div key={i} className="px-6 py-3 flex items-center gap-4 text-xs">
+                  <span className="text-[#3a2f4a] font-mono">block {c.blockNumber}</span>
+                  <span className="text-[#5a4f6a]">API #{c.apiId}</span>
+                  {c.txHash && (
+                    <a
+                      href={`https://sepolia.etherscan.io/tx/${c.txHash}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="ml-auto font-mono text-violet-500 hover:text-violet-400 text-[10px] transition-colors"
+                    >
+                      {c.txHash.slice(0, 8)}... ↗
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

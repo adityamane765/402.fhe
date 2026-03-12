@@ -18,10 +18,16 @@ function patchWindowEthereum() {
   const provider = win.ethereum;
   const original = provider.request.bind(provider);
   win.ethereum!.request = async ({ method, params }: { method: string; params?: unknown[] }) => {
-    if (method === "eth_estimateGas" && Array.isArray(params) && params.length > 0) {
-      const tx = params[0] as { to?: string };
+    if (Array.isArray(params) && params.length > 0) {
+      const tx = params[0] as { to?: string; gas?: string };
       if (tx?.to?.toLowerCase() === CONTRACT_ADDRESS) {
-        return "0x989680"; // 10M — under the 16.7M cap, enough for fhEVM ops
+        if (method === "eth_estimateGas") {
+          return "0x989680"; // 10M — under the 16.7M cap, enough for fhEVM ops
+        }
+        if (method === "eth_sendTransaction") {
+          // always override — viem estimates via its own RPC transport, bypassing our eth_estimateGas intercept
+          params = [{ ...tx, gas: "0x989680" }, ...params.slice(1)];
+        }
       }
     }
     return original({ method, params });

@@ -48,6 +48,60 @@ export const MARKETPLACE_ABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "merchant", "type": "address"},
+      {"name": "amount", "type": "uint256"},
+      {"name": "decryptionProof", "type": "bytes"}
+    ],
+    "name": "fulfillWithdrawal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "", "type": "address"}],
+    "name": "withdrawalPending",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [{"name": "", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [{"indexed": true, "name": "merchant", "type": "address"}],
+    "name": "WithdrawalRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "merchant", "type": "address"},
+      {"indexed": false, "name": "amount", "type": "uint256"}
+    ],
+    "name": "Withdrawn",
+    "type": "event"
+  },
+  {
+    "inputs": [{"name": "buyer", "type": "address"}],
+    "name": "getBalance",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "merchant", "type": "address"}],
+    "name": "getRevenue",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const;
 
