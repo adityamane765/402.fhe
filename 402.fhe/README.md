@@ -5,7 +5,7 @@ A confidential API marketplace built on [Zama fhEVM](https://www.zama.ai). Merch
 **Live**
 
 - Frontend: https://402-fhe.vercel.app
-- Middleware: https://four02-fhe.onrender.com
+- Middleware: https://402fhe-production.up.railway.app
 - Contract: `0x674182eaA4d180619d99f914E33028e1D6483785` on Ethereum Sepolia
 
 ---
@@ -144,7 +144,7 @@ cd contracts
 npx hardhat run scripts/deploy.ts --network sepolia
 ```
 
-After deploy: update `NEXT_PUBLIC_CONTRACT_ADDRESS` in Vercel dashboard and `CONTRACT_ADDRESS` in Render env vars, then redeploy both.
+After deploy: update `NEXT_PUBLIC_CONTRACT_ADDRESS` in Vercel dashboard and `CONTRACT_ADDRESS` in Railway env vars, then redeploy both.
 
 ---
 
@@ -163,11 +163,7 @@ After deploy: update `NEXT_PUBLIC_CONTRACT_ADDRESS` in Vercel dashboard and `CON
 
 ## Roadmap
 
-### Phase 2 — economics
-- Listing fees for merchants (flat monthly, fully public transaction)
-- Float yield on deposited USDC between deposit and withdrawal — protocol earns on idle capital
-
-### Phase 3 — FHE state channels
+### Phase 2 — FHE state channels
 Open an encrypted payment channel once, exchange signed proofs off-chain per request, batch settle to L1. Eliminates per-call settlement gas while preserving the FHE privacy guarantees. Enables high-frequency micropayments (thousands of calls/minute) without on-chain overhead.
 
 ### Phase 4 — protocol
