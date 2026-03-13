@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
-import { CONTRACT_ADDRESS, MARKETPLACE_ABI } from "@/lib/contract";
+import { CONTRACT_ADDRESS } from "@/lib/contract";
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
 
@@ -17,10 +17,11 @@ interface SettleEvent {
   blockNumber: string;
 }
 
-interface PendingWithdrawal {
+interface WithdrawalEvent {
   address: string;
   txHash: string;
   blockNumber: string;
+  fulfilled: boolean;
 }
 
 function CipherBadge() {
@@ -32,22 +33,12 @@ function CipherBadge() {
 }
 
 export default function OperatorPage() {
-  const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
 
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [settleEvents, setSettleEvents] = useState<SettleEvent[]>([]);
-  const [pendingWithdrawals, setPendingWithdrawals] = useState<PendingWithdrawal[]>([]);
+  const [withdrawalEvents, setWithdrawalEvents] = useState<WithdrawalEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  // per-withdrawal form state: address → {amount, proof}
-  const [fulfillInputs, setFulfillInputs] = useState<Record<string, { amount: string; proof: string }>>({});
-  const [fulfillStatus, setFulfillStatus] = useState<Record<string, "idle" | "pending" | "done" | "error">>({});
-  const [fulfillErrors, setFulfillErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!publicClient || !CONTRACT_ADDRESS) {
@@ -57,7 +48,7 @@ export default function OperatorPage() {
 
     async function fetchData() {
       try {
-        const fromBlock = BigInt(10425000);
+        const fromBlock = BigInt(10436000);
         const [depositLogs, listLogs, settleLogs, withdrawalRequestedLogs, withdrawnLogs] = await Promise.all([
           publicClient!.getLogs({
             address: CONTRACT_ADDRESS,
@@ -100,16 +91,13 @@ export default function OperatorPage() {
           blockNumber: String(l.blockNumber),
         })));
 
-        // pending = requested but not yet fulfilled
         const fulfilledAddresses = new Set(withdrawnLogs.map((l) => (l.args.merchant as string).toLowerCase()));
-        const pending = withdrawalRequestedLogs
-          .filter((l) => !fulfilledAddresses.has((l.args.merchant as string).toLowerCase()))
-          .map((l) => ({
-            address: l.args.merchant as string,
-            txHash: l.transactionHash ?? "",
-            blockNumber: String(l.blockNumber),
-          }));
-        setPendingWithdrawals(pending);
+        setWithdrawalEvents(withdrawalRequestedLogs.map((l) => ({
+          address: l.args.merchant as string,
+          txHash: l.transactionHash ?? "",
+          blockNumber: String(l.blockNumber),
+          fulfilled: fulfilledAddresses.has((l.args.merchant as string).toLowerCase()),
+        })));
       } catch {
         // empty state if contract not reachable
       } finally {
@@ -119,31 +107,6 @@ export default function OperatorPage() {
 
     fetchData();
   }, [publicClient]);
-
-  const handleFulfill = async (addr: string) => {
-    const inputs = fulfillInputs[addr];
-    if (!inputs?.amount || !inputs?.proof) return;
-
-    setFulfillStatus((p) => ({ ...p, [addr]: "pending" }));
-    setFulfillErrors((p) => ({ ...p, [addr]: "" }));
-
-    try {
-      const amountBigInt = BigInt(Math.round(parseFloat(inputs.amount) * 1_000_000));
-      await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: MARKETPLACE_ABI,
-        functionName: "fulfillWithdrawal",
-        args: [addr as `0x${string}`, amountBigInt, inputs.proof as `0x${string}`],
-      });
-      setFulfillStatus((p) => ({ ...p, [addr]: "done" }));
-      setPendingWithdrawals((p) => p.filter((w) => w.address.toLowerCase() !== addr.toLowerCase()));
-    } catch (err) {
-      setFulfillStatus((p) => ({ ...p, [addr]: "error" }));
-      setFulfillErrors((p) => ({ ...p, [addr]: err instanceof Error ? err.message : "tx failed" }));
-    }
-  };
-
-  const isOwner = mounted && isConnected && address;
 
   return (
     <main className="min-h-screen bg-[#0f0d1a] text-white">
@@ -160,96 +123,50 @@ export default function OperatorPage() {
           <h1 className="text-3xl font-bold text-white mb-3">Operator Dashboard</h1>
           <p className="text-[#5a4f6a] leading-relaxed max-w-xl">
             All balances and revenues are encrypted — this view shows participation and settlement activity.
-            Withdrawal fulfillment requires the owner wallet and a KMS decryption proof.
+            Withdrawals are now self-serve: merchants and buyers fulfill their own withdrawals via KMS decryption in their browser.
           </p>
         </div>
 
-        {/* pending withdrawals */}
+        {/* withdrawal activity */}
         <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden mb-6">
           <div className="px-6 py-4 border-b border-[#1e1730] flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
-            <h2 className="text-sm font-medium text-white">Pending Withdrawals</h2>
-            <span className="ml-auto text-xs text-[#3a2f4a] font-mono">{pendingWithdrawals.length} pending</span>
+            <h2 className="text-sm font-medium text-white">Withdrawal Activity</h2>
+            <span className="ml-auto text-xs text-[#3a2f4a] font-mono">
+              {withdrawalEvents.filter(w => !w.fulfilled).length} pending · {withdrawalEvents.filter(w => w.fulfilled).length} fulfilled
+            </span>
           </div>
 
           {loading && (
             <p className="px-6 py-8 text-center text-[#3a2f4a] text-sm">Loading...</p>
           )}
-          {!loading && pendingWithdrawals.length === 0 && (
-            <p className="px-6 py-8 text-center text-[#3a2f4a] text-sm">No pending withdrawal requests.</p>
+          {!loading && withdrawalEvents.length === 0 && (
+            <p className="px-6 py-8 text-center text-[#3a2f4a] text-sm">No withdrawal activity yet.</p>
           )}
 
           <div className="divide-y divide-[#1e1730]">
-            {pendingWithdrawals.map((w) => (
-              <div key={w.address} className="px-6 py-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-xs font-mono text-[#9d8fae]">{w.address}</p>
-                    <p className="text-[10px] text-[#3a2f4a] mt-0.5">
-                      requested at block {w.blockNumber}
-                      {w.txHash && (
-                        <a
-                          href={`https://sepolia.etherscan.io/tx/${w.txHash}`}
-                          target="_blank"
-                          rel="noopener"
-                          className="ml-2 text-violet-500 hover:text-violet-400"
-                        >
-                          {w.txHash.slice(0, 8)}... ↗
-                        </a>
-                      )}
-                    </p>
-                  </div>
-                  {fulfillStatus[w.address] === "done" && (
-                    <span className="text-xs text-emerald-400 font-mono">fulfilled ✓</span>
-                  )}
+            {withdrawalEvents.map((w, i) => (
+              <div key={i} className="px-6 py-4 flex items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-xs font-mono text-[#9d8fae]">{w.address}</p>
+                  <p className="text-[10px] text-[#3a2f4a] mt-0.5">
+                    requested at block {w.blockNumber}
+                    {w.txHash && (
+                      <a
+                        href={`https://sepolia.etherscan.io/tx/${w.txHash}`}
+                        target="_blank"
+                        rel="noopener"
+                        className="ml-2 text-violet-500 hover:text-violet-400"
+                      >
+                        {w.txHash.slice(0, 8)}... ↗
+                      </a>
+                    )}
+                  </p>
                 </div>
-
-                {fulfillStatus[w.address] !== "done" && (
-                  <div className="space-y-3">
-                    <p className="text-[10px] text-[#5a4f6a]">
-                      Run the KMS relay script to get the cleartext amount and proof for this address, then paste below.
-                    </p>
-                    <div className="flex gap-3">
-                      <input
-                        type="number"
-                        placeholder="Amount (USDC, e.g. 10.5)"
-                        value={fulfillInputs[w.address]?.amount ?? ""}
-                        onChange={(e) => setFulfillInputs((p) => ({
-                          ...p,
-                          [w.address]: { ...p[w.address], amount: e.target.value }
-                        }))}
-                        className="flex-1 bg-[#0f0d1a] border border-[#1e1730] rounded-lg px-3 py-2 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-1 focus:ring-violet-700"
-                      />
-                    </div>
-                    <textarea
-                      placeholder="Decryption proof (0x...)"
-                      value={fulfillInputs[w.address]?.proof ?? ""}
-                      onChange={(e) => setFulfillInputs((p) => ({
-                        ...p,
-                        [w.address]: { ...p[w.address], proof: e.target.value }
-                      }))}
-                      rows={2}
-                      className="w-full bg-[#0f0d1a] border border-[#1e1730] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-1 focus:ring-violet-700 resize-none"
-                    />
-                    <button
-                      onClick={() => handleFulfill(w.address)}
-                      disabled={
-                        !isOwner ||
-                        !fulfillInputs[w.address]?.amount ||
-                        !fulfillInputs[w.address]?.proof ||
-                        fulfillStatus[w.address] === "pending"
-                      }
-                      className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
-                    >
-                      {fulfillStatus[w.address] === "pending" ? "Submitting..." : "Fulfill Withdrawal"}
-                    </button>
-                    {!isOwner && (
-                      <p className="text-[10px] text-[#5a4f6a]">Connect the owner wallet to fulfill.</p>
-                    )}
-                    {fulfillErrors[w.address] && (
-                      <p className="text-xs text-red-400">{fulfillErrors[w.address]}</p>
-                    )}
-                  </div>
+                {w.fulfilled ? (
+                  <span className="text-xs text-emerald-400 font-mono">fulfilled ✓</span>
+                ) : (
+                  <span className="text-xs text-orange-400 font-mono">pending</span>
                 )}
               </div>
             ))}

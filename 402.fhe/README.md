@@ -6,7 +6,7 @@ A confidential API marketplace built on [Zama fhEVM](https://www.zama.ai). Merch
 
 - **Frontend:** https://402-fhe.vercel.app
 - **Middleware:** https://four02-fhe.onrender.com
-- **Contract:** `0x4Ff4a147f6e052398B8C0962c6cd4Fa4f34d2826` on Ethereum Sepolia
+- **Contract:** `0x674182eaA4d180619d99f914E33028e1D6483785` on Ethereum Sepolia
 
 ## How it works
 
@@ -34,9 +34,9 @@ agent/        Python AI agent client demo
 app/          Next.js frontend
 ```
 
-## Withdrawal design and the operator requirement
+## Withdrawal design
 
-Withdrawals work differently from settlements and require operator involvement. Here is why.
+Withdrawals are fully self-serve — no operator or relayer required.
 
 ### Why settlements need no operator
 
@@ -48,42 +48,30 @@ balances[buyer] = FHE.select(affordable, FHE.sub(balances[buyer], price), balanc
 revenue[merchant] = FHE.select(affordable, FHE.add(revenue[merchant], merchantCut), revenue[merchant]);
 ```
 
-This is pure FHE arithmetic. The contract never decrypts anything — it operates directly on ciphertexts. No operator sees any plaintext. This is the core of 402.fhe and it works fully automatically.
+This is pure FHE arithmetic. The contract never decrypts anything — it operates directly on ciphertexts. No operator sees any plaintext.
 
-### Why withdrawals require operator assistance
+### Why withdrawals can be self-serve
 
-When a buyer or merchant wants to withdraw USDC out of the contract, the contract needs to know the plaintext amount to call `usdc.transfer(user, amount)`. There is no way to call ERC-20 transfer with an encrypted amount — ERC-20 is a standard contract that expects a uint256.
+When a merchant or buyer withdraws, the contract needs a plaintext amount for the ERC-20 transfer. The amount comes from `publicDecrypt` — a call to the Zama KMS gateway that returns a KMS-signed decryption proof. This is a public API call that anyone can make from the browser.
 
-To get the plaintext amount, the contract uses `FHE.checkSignatures()`:
+The contract marks ciphertext handles as `makePubliclyDecryptable` during settlement so the KMS can decrypt them. The contract then verifies the proof on-chain via `FHE.checkSignatures` before transferring.
 
 ```solidity
 function fulfillWithdrawal(address merchant, uint256 amount, bytes calldata decryptionProof) external {
-    require(msg.sender == owner, "not owner");
+    require(msg.sender == merchant, "only merchant");
     FHE.checkSignatures(handles, abi.encode(amount), decryptionProof);
     usdc.transfer(merchant, amount);
 }
 ```
 
-`FHE.checkSignatures` verifies that the Zama KMS signed a proof attesting that the ciphertext handle decrypts to `amount`. This proof can only be produced by the Zama KMS gateway — it has root decryption authority. The proof is then verified on-chain before any transfer happens.
+The merchant calls `publicDecrypt` in their browser, gets `(clearAmount, decryptionProof)` back from the KMS, and submits `fulfillWithdrawal` themselves. No operator involved.
 
-The operator is the only party who can request this proof from the KMS gateway and submit the `fulfillWithdrawal` transaction. The buyer or merchant cannot do this themselves with the current SDK — `userDecrypt` (which buyers/merchants use to view their own balance) decrypts client-side and returns a plaintext bigint, not a KMS-signed proof that the contract can verify.
+### Why this is safe
 
-### Why not just trust the user's claimed amount?
-
-If `fulfillWithdrawal` accepted a user-supplied amount without a KMS proof, a malicious user could claim any amount and drain the contract. The proof is what makes it trustless.
-
-### Why `FHE.requestDecryption()` would solve this
-
-`FHE.requestDecryption()` triggers an asynchronous on-chain decryption callback — the contract itself requests decryption and receives the plaintext via a callback, with no external operator needed. This is the clean solution. However, `FHE.requestDecryption()` is not available in fhEVM v0.11.1 on Sepolia testnet. It is expected in a future version.
-
-### Current state
-
-Withdrawals require the operator to run a KMS relay script that:
-1. Watches for `WithdrawalRequested` events
-2. Calls the Zama KMS gateway to get a signed decryption proof for the handle
-3. Submits `fulfillWithdrawal(user, amount, proof)` with the owner wallet
-
-The core value proposition — confidential per-call settlements with no operator visibility — works fully without this. Withdrawal is an off-ramp concern, not a payment concern.
+- The proof is signed by the Zama KMS — the amount cannot be fabricated
+- `FHE.checkSignatures` verifies the proof matches the current on-chain handle — stale proofs revert
+- `usdc.transfer` always pays the merchant address from the contract — a third party obtaining the proof gains nothing
+- Only the merchant can call `fulfillWithdrawal` for their own account (`msg.sender == merchant`)
 
 ## Running locally
 

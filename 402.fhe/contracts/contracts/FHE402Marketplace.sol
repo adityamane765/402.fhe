@@ -72,6 +72,7 @@ contract FHE402Marketplace is ZamaEthereumConfig {
         euint64 newBal = FHE.add(balances[msg.sender], FHE.asEuint64(amount));
         newBal = FHE.allow(newBal, msg.sender);
         newBal = FHE.allowThis(newBal);
+        newBal = FHE.makePubliclyDecryptable(newBal);
         balances[msg.sender] = newBal;
 
         emit Deposited(msg.sender, amount);
@@ -103,11 +104,13 @@ contract FHE402Marketplace is ZamaEthereumConfig {
         euint64 newBal = FHE.select(affordable, FHE.sub(bal, cost), bal);
         newBal = FHE.allow(newBal, buyer);
         newBal = FHE.allowThis(newBal);
+        newBal = FHE.makePubliclyDecryptable(newBal);
         balances[buyer] = newBal;
 
         euint64 newRevenue = FHE.add(revenue[merchant], FHE.select(affordable, FHE.asEuint64(merchantCut), FHE.asEuint64(0)));
         newRevenue = FHE.allow(newRevenue, merchant);
         newRevenue = FHE.allowThis(newRevenue);
+        newRevenue = FHE.makePubliclyDecryptable(newRevenue);
         revenue[merchant] = newRevenue;
 
         protocolFees = FHE.add(protocolFees, FHE.select(affordable, FHE.asEuint64(protocolCut), FHE.asEuint64(0)));
@@ -116,27 +119,29 @@ contract FHE402Marketplace is ZamaEthereumConfig {
         emit CallSettled(apiId, buyer);
     }
 
-    // step 1: merchant signals intent. relayer picks up the event, decrypts revenue off-chain via KMS,
-    // then calls fulfillWithdrawal with the cleartext + proof
+    // step 1: merchant signals intent and marks withdrawal pending
     function requestWithdrawal() external {
         require(!withdrawalPending[msg.sender], "withdrawal already pending");
         withdrawalPending[msg.sender] = true;
         emit WithdrawalRequested(msg.sender);
     }
 
-    // step 2: owner/relayer submits cleartext amount + KMS proof, we verify and pay out
+    // step 2: merchant calls publicDecrypt(revenueHandle) via KMS gateway in their browser,
+    // gets back (amount, decryptionProof), then submits here — no operator needed
     // handles are derived from contract storage — caller can't substitute a different ciphertext
     function fulfillWithdrawal(
         address merchant,
-        uint256 amount,
+        bytes calldata abiEncodedCleartexts,
         bytes calldata decryptionProof
     ) external {
-        require(msg.sender == owner, "not owner");
+        require(msg.sender == merchant, "only merchant");
         require(withdrawalPending[merchant], "no pending withdrawal");
 
         bytes32[] memory handles = new bytes32[](1);
         handles[0] = bytes32(euint64.unwrap(revenue[merchant]));
-        FHE.checkSignatures(handles, abi.encode(amount), decryptionProof);
+        FHE.checkSignatures(handles, abiEncodedCleartexts, decryptionProof);
+
+        uint256 amount = abi.decode(abiEncodedCleartexts, (uint256));
 
         euint64 zeroed = FHE.asEuint64(0);
         zeroed = FHE.allowThis(zeroed);
@@ -166,9 +171,34 @@ contract FHE402Marketplace is ZamaEthereumConfig {
         emit FeesWithdrawalRequested();
     }
 
+    // buyer version — decrypts balances[buyer] handle instead of revenue
+    function fulfillBuyerWithdrawal(
+        address buyer,
+        bytes calldata abiEncodedCleartexts,
+        bytes calldata decryptionProof
+    ) external {
+        require(msg.sender == buyer, "only buyer");
+        require(withdrawalPending[buyer], "no pending withdrawal");
+
+        bytes32[] memory handles = new bytes32[](1);
+        handles[0] = bytes32(euint64.unwrap(balances[buyer]));
+        FHE.checkSignatures(handles, abiEncodedCleartexts, decryptionProof);
+
+        uint256 amount = abi.decode(abiEncodedCleartexts, (uint256));
+
+        euint64 zeroed = FHE.asEuint64(0);
+        zeroed = FHE.allowThis(zeroed);
+        balances[buyer] = zeroed;
+
+        withdrawalPending[buyer] = false;
+
+        usdc.transfer(buyer, amount);
+        emit Withdrawn(buyer, amount);
+    }
+
     function fulfillFeesWithdrawal(
         address to,
-        uint256 amount,
+        bytes calldata abiEncodedCleartexts,
         bytes calldata decryptionProof
     ) external {
         require(msg.sender == owner, "not owner");
@@ -176,7 +206,9 @@ contract FHE402Marketplace is ZamaEthereumConfig {
 
         bytes32[] memory handles = new bytes32[](1);
         handles[0] = bytes32(euint64.unwrap(protocolFees));
-        FHE.checkSignatures(handles, abi.encode(amount), decryptionProof);
+        FHE.checkSignatures(handles, abiEncodedCleartexts, decryptionProof);
+
+        uint256 amount = abi.decode(abiEncodedCleartexts, (uint256));
 
         euint64 zeroed = FHE.asEuint64(0);
         zeroed = FHE.allowThis(zeroed);

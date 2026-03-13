@@ -4,6 +4,7 @@ import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
 import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib/contract";
 import { useUserDecrypt } from "@/lib/useUserDecrypt";
+import { usePublicDecryptWithdraw } from "@/lib/usePublicDecrypt";
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
 
@@ -32,11 +33,11 @@ export default function MerchantPage() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [listed, setListed] = useState(false);
-  const [withdrawalRequested, setWithdrawalRequested] = useState(false);
   const [myApis, setMyApis] = useState<MyApi[]>([]);
   const [myApisLoading, setMyApisLoading] = useState(false);
   const [clearRevenue, setClearRevenue] = useState<bigint | null>(null);
   const { decryptRevenue, loading: decryptLoading, error: decryptError } = useUserDecrypt();
+  const { withdrawRevenue, status: withdrawStatus, error: withdrawError } = usePublicDecryptWithdraw();
 
   // registration state
   const [newApiId, setNewApiId] = useState<number | null>(null);
@@ -53,7 +54,7 @@ export default function MerchantPage() {
       address: CONTRACT_ADDRESS,
       event: parseAbiItem("event ApiListed(uint256 indexed id, address indexed merchant, string name, uint64 price)"),
       args: { merchant: address },
-      fromBlock: BigInt(10425000),
+      fromBlock: BigInt(10436000),
     }).then((logs) => {
       setMyApis(logs.map((l) => ({
         id: Number(l.args.id ?? 0),
@@ -65,7 +66,6 @@ export default function MerchantPage() {
   }, [publicClient, address]);
 
   const { writeContractAsync: listApi, isPending: isListing } = useWriteContract();
-  const { writeContractAsync: requestWithdrawal, isPending: isWithdrawing } = useWriteContract();
 
   const handleListApi = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,15 +121,6 @@ export default function MerchantPage() {
       setRegStatus("error");
       setRegError(err instanceof Error ? err.message : "registration failed");
     }
-  };
-
-  const handleWithdrawal = async () => {
-    await requestWithdrawal({
-      address: CONTRACT_ADDRESS,
-      abi: MARKETPLACE_ABI,
-      functionName: "requestWithdrawal",
-    });
-    setWithdrawalRequested(true);
   };
 
   const inputCls = "w-full bg-[#0f0d1a] border border-[#1e1730] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-transparent";
@@ -243,17 +234,13 @@ export default function MerchantPage() {
             Revenue is stored as an encrypted euint64. Sign with your wallet — the relayer decrypts only for you.
           </p>
           <button
-            onClick={handleWithdrawal}
-            disabled={isWithdrawing || !isConnected || withdrawalRequested}
+            onClick={() => address && withdrawRevenue(address)}
+            disabled={withdrawStatus === "requesting" || withdrawStatus === "decrypting" || withdrawStatus === "submitting" || withdrawStatus === "done" || !isConnected}
             className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30 w-full"
           >
-            {isWithdrawing ? "Requesting..." : withdrawalRequested ? "Withdrawal Requested ✓" : "Request Withdrawal"}
+            {withdrawStatus === "requesting" ? "Requesting..." : withdrawStatus === "decrypting" ? "Decrypting via KMS..." : withdrawStatus === "submitting" ? "Submitting..." : withdrawStatus === "done" ? "Withdrawn ✓" : "Withdraw"}
           </button>
-          {withdrawalRequested && (
-            <p className="mt-3 text-sm text-[#5a4f6a]">
-              Request submitted. The operator will process your withdrawal within 24 hours.
-            </p>
-          )}
+          {withdrawError && <p className="mt-2 text-xs text-red-400">{withdrawError}</p>}
         </div>
 
         {/* my APIs */}

@@ -5,6 +5,7 @@ import { parseUnits, parseAbiItem } from "viem";
 import { callApi } from "@/lib/middleware";
 import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib/contract";
 import { useUserDecrypt } from "@/lib/useUserDecrypt";
+import { usePublicDecryptWithdraw } from "@/lib/usePublicDecrypt";
 import ConnectButton from "@/components/ConnectButton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -73,9 +74,9 @@ function BuyerPageInner() {
   const [routes, setRoutes] = useState<Record<string, { path: string }>>({});
   const [callHistory, setCallHistory] = useState<CallRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [withdrawalRequested, setWithdrawalRequested] = useState(false);
   const [clearBalance, setClearBalance] = useState<bigint | null>(null);
   const { decryptBalance, loading: decryptLoading, error: decryptError } = useUserDecrypt();
+  const { withdrawBalance, status: withdrawStatus, error: withdrawError } = usePublicDecryptWithdraw();
 
   const focusedApiId = searchParams.get("apiId") ? Number(searchParams.get("apiId")) : null;
 
@@ -95,7 +96,7 @@ function BuyerPageInner() {
       address: CONTRACT_ADDRESS,
       event: parseAbiItem("event CallSettled(uint256 indexed apiId, address indexed buyer)"),
       args: { buyer: address },
-      fromBlock: BigInt(10425000),
+      fromBlock: BigInt(10436000),
     }).then((logs) => {
       setCallHistory(logs.map((l) => ({
         apiId: String(l.args.apiId ?? "?"),
@@ -136,7 +137,6 @@ function BuyerPageInner() {
 
   const { writeContractAsync: approve } = useWriteContract();
   const { writeContractAsync: deposit } = useWriteContract();
-  const { writeContractAsync: requestWithdrawal, isPending: isWithdrawing } = useWriteContract();
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,15 +161,6 @@ function BuyerPageInner() {
     } catch {
       setDepositStatus("idle");
     }
-  };
-
-  const handleWithdrawal = async () => {
-    await requestWithdrawal({
-      address: CONTRACT_ADDRESS,
-      abi: MARKETPLACE_ABI,
-      functionName: "requestWithdrawal",
-    });
-    setWithdrawalRequested(true);
   };
 
   const handleCallApi = async (path: string, apiId: number) => {
@@ -242,19 +233,15 @@ function BuyerPageInner() {
                 {decryptLoading ? "Signing..." : clearBalance !== null ? "Refresh Balance" : "Reveal Balance"}
               </button>
               <button
-                onClick={handleWithdrawal}
-                disabled={isWithdrawing || withdrawalRequested}
+                onClick={() => address && withdrawBalance(address)}
+                disabled={withdrawStatus === "requesting" || withdrawStatus === "decrypting" || withdrawStatus === "submitting" || withdrawStatus === "done"}
                 className="flex-1 border border-[#1e1730] text-[#5a4f6a] hover:text-violet-400 hover:border-violet-800/60 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
               >
-                {isWithdrawing ? "Requesting..." : withdrawalRequested ? "Withdrawal Requested ✓" : "Request Withdrawal"}
+                {withdrawStatus === "requesting" ? "Requesting..." : withdrawStatus === "decrypting" ? "Decrypting..." : withdrawStatus === "submitting" ? "Submitting..." : withdrawStatus === "done" ? "Withdrawn ✓" : "Withdraw"}
               </button>
             </div>
             {decryptError && <p className="mt-2 text-xs text-red-400">{decryptError}</p>}
-            {withdrawalRequested && (
-              <p className="mt-2 text-xs text-[#5a4f6a]">
-                Submitted. The operator will process your withdrawal off-chain via KMS decryption.
-              </p>
-            )}
+            {withdrawError && <p className="mt-2 text-xs text-red-400">{withdrawError}</p>}
           </div>
         )}
 
