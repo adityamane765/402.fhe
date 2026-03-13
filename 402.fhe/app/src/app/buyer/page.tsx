@@ -17,7 +17,7 @@ interface ApiEntry {
   name: string;
   description: string;
   price: bigint;
-  path: string;
+  path: string | null;
 }
 
 interface CallRecord {
@@ -129,8 +129,7 @@ function BuyerPageInner() {
       if (result.status !== "success" || !result.result) return null;
       const [, name, description, price, active] = result.result as [string, string, string, bigint, boolean];
       if (!active) return null;
-      const path = routes[String(i)]?.path;
-      if (!path) return null;
+      const path = routes[String(i)]?.path ?? null;
       return { id: i, name, description, price, path };
     })
     .filter(Boolean) as ApiEntry[];
@@ -315,11 +314,12 @@ function BuyerPageInner() {
                       ${(Number(api.price) / 1_000_000).toFixed(2)}
                     </span>
                     <button
-                      onClick={() => handleCallApi(api.path, api.id)}
-                      disabled={loading[api.id] || !isConnected}
+                      onClick={() => api.path && handleCallApi(api.path, api.id)}
+                      disabled={loading[api.id] || !isConnected || !api.path}
+                      title={!api.path ? "Not yet registered with middleware" : undefined}
                       className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
                     >
-                      {loading[api.id] ? "Calling..." : "Call API"}
+                      {loading[api.id] ? "Calling..." : !api.path ? "Unregistered" : "Call API"}
                     </button>
                   </div>
                 </div>
