@@ -1,4 +1,7 @@
 {
   "0": { "path": "/api/weather", "endpoint": "https://wttr.in/Paris?format=j1" },
-  "1": { "path": "/api/inference", "endpoint": "https://httpbin.org/get" }
+  "1": { "path": "/api/inference", "endpoint": "https://httpbin.org/get" },
+  "2": { "path": "/api/prices", "endpoint": "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd&include_24hr_change=true" },
+  "3": { "path": "/api/news", "endpoint": "https://hacker-news.firebaseio.com/v0/topstories.json" },
+  "4": { "path": "/api/fact", "endpoint": "https://uselessfacts.jsph.pl/api/v2/facts/random?language=en" }
 }
