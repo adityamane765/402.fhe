@@ -1,4 +1,4 @@
-import os, json, time
+import os, json
 from dotenv import load_dotenv
 from eth_account import Account
 from x402_client import FHE402Client
@@ -18,18 +18,19 @@ def main():
 
     print("→ GET /api/weather")
     weather = client.get("/api/weather")
-    print(f"  200 OK — payment settled on-chain (balance decremented, revenue incremented, both encrypted)")
+    print(f"  200 OK — proof stored off-chain, not yet settled")
     print(f"  {json.dumps(weather, indent=2)[:300]}")
     print()
 
-    # wait for settlement batch to clear the reserve
-    print("  waiting for on-chain settlement...")
-    time.sleep(12)
-
     print("→ GET /api/inference")
     inference = client.get("/api/inference")
-    print(f"  200 OK — payment settled on-chain")
+    print(f"  200 OK — proof stored, not yet settled")
     print(f"  {json.dumps(inference, indent=2)[:300]}")
+    print()
+
+    print("→ settling all pending calls on-chain...")
+    settled = client.settle()
+    print(f"  {settled} call(s) settled in one tx")
 
 if __name__ == "__main__":
     main()

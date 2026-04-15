@@ -39,6 +39,9 @@ export default function MerchantPage() {
   const { decryptRevenue, loading: decryptLoading, error: decryptError } = useUserDecrypt();
   const { withdrawRevenue, status: withdrawStatus, error: withdrawError } = usePublicDecryptWithdraw();
 
+  const [settleStatus, setSettleStatus] = useState<"idle" | "settling" | "done">("idle");
+  const [pendingTotal, setPendingTotal] = useState<number>(0);
+
   // registration state
   const [newApiId, setNewApiId] = useState<number | null>(null);
   const [regEndpoint, setRegEndpoint] = useState("");
@@ -100,6 +103,34 @@ export default function MerchantPage() {
   };
 
   const MIDDLEWARE_URL = process.env.NEXT_PUBLIC_MIDDLEWARE_URL || "http://localhost:3001";
+
+  // fetch pending unsettled calls across all apis for this merchant
+  useEffect(() => {
+    if (!address) return;
+    fetch(`${MIDDLEWARE_URL}/pending/${address}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const total = Object.values(data.pending || {}).reduce((a: number, b) => a + (b as number), 0);
+        setPendingTotal(total);
+      })
+      .catch(() => {});
+  }, [address]);
+
+  const handleSettle = async () => {
+    if (!address) return;
+    setSettleStatus("settling");
+    try {
+      await fetch(`${MIDDLEWARE_URL}/settle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      setPendingTotal(0);
+      setSettleStatus("done");
+    } catch {
+      setSettleStatus("idle");
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,6 +264,15 @@ export default function MerchantPage() {
           <p className="text-xs text-[#3a2f4a] mb-5">
             Revenue is stored as an encrypted euint64. Sign with your wallet — the relayer decrypts only for you.
           </p>
+          {pendingTotal > 0 && (
+            <button
+              onClick={handleSettle}
+              disabled={settleStatus === "settling"}
+              className="w-full border border-emerald-800/60 text-emerald-400 hover:bg-emerald-950/30 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30 mb-3"
+            >
+              {settleStatus === "settling" ? "Settling..." : settleStatus === "done" ? "Settled ✓" : `Settle Now — ${pendingTotal} unsettled call${pendingTotal > 1 ? "s" : ""}`}
+            </button>
+          )}
           <button
             onClick={() => address && withdrawRevenue(address)}
             disabled={withdrawStatus === "requesting" || withdrawStatus === "decrypting" || withdrawStatus === "submitting" || withdrawStatus === "done" || !isConnected}

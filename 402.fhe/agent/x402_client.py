@@ -23,6 +23,15 @@ class FHE402Client:
             return r.json()
         raise RuntimeError(f"request failed: {r.status_code} {r.text}")
 
+    def settle(self) -> int:
+        r = self.session.post(
+            f"{self.middleware_url}/settle",
+            json={"address": self.account.address},
+        )
+        if r.status_code != 200:
+            raise RuntimeError(f"settle failed: {r.status_code} {r.text}")
+        return r.json().get("settled", 0)
+
     def _build_payment_header(self, challenge: dict) -> str:
         msg = f"{challenge['apiId']}:{challenge['nonce']}"
         encoded = encode_defunct(text=msg)

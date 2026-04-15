@@ -75,6 +75,8 @@ function BuyerPageInner() {
   const [callHistory, setCallHistory] = useState<CallRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [clearBalance, setClearBalance] = useState<bigint | null>(null);
+  const [pendingCalls, setPendingCalls] = useState<Record<number, number>>({});
+  const [settleStatus, setSettleStatus] = useState<"idle" | "settling" | "done">("idle");
   const { decryptBalance, loading: decryptLoading, error: decryptError } = useUserDecrypt();
   const { withdrawBalance, status: withdrawStatus, error: withdrawError } = usePublicDecryptWithdraw();
 
@@ -87,6 +89,15 @@ function BuyerPageInner() {
       .then(setRoutes)
       .catch(() => {});
   }, []);
+
+  // fetch pending unsettled call count for this buyer
+  useEffect(() => {
+    if (!address) return;
+    fetch(`${MIDDLEWARE_URL}/pending/${address}`)
+      .then((r) => r.json())
+      .then((data) => setPendingCalls(data.pending || {}))
+      .catch(() => {});
+  }, [address]);
 
   // fetch call history from CallSettled events for this buyer
   useEffect(() => {
@@ -176,6 +187,24 @@ function BuyerPageInner() {
     }
   };
 
+  const totalPending = Object.values(pendingCalls).reduce((a, b) => a + b, 0);
+
+  const handleSettle = async () => {
+    if (!address) return;
+    setSettleStatus("settling");
+    try {
+      await fetch(`${MIDDLEWARE_URL}/settle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      setPendingCalls({});
+      setSettleStatus("done");
+    } catch {
+      setSettleStatus("idle");
+    }
+  };
+
   const depositLabel = {
     idle: "Deposit",
     approving: "Approving...",
@@ -218,7 +247,7 @@ function BuyerPageInner() {
                 <CipherBadge />
               )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 mb-3">
               <button
                 onClick={async () => {
                   if (address) {
@@ -239,6 +268,15 @@ function BuyerPageInner() {
                 {withdrawStatus === "requesting" ? "Requesting..." : withdrawStatus === "decrypting" ? "Decrypting..." : withdrawStatus === "submitting" ? "Submitting..." : withdrawStatus === "done" ? "Withdrawn ✓" : "Withdraw"}
               </button>
             </div>
+            {totalPending > 0 && (
+              <button
+                onClick={handleSettle}
+                disabled={settleStatus === "settling"}
+                className="w-full border border-emerald-800/60 text-emerald-400 hover:bg-emerald-950/30 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
+              >
+                {settleStatus === "settling" ? "Settling..." : settleStatus === "done" ? "Settled ✓" : `Settle Now — ${totalPending} unsettled call${totalPending > 1 ? "s" : ""}`}
+              </button>
+            )}
             {decryptError && <p className="mt-2 text-xs text-red-400">{decryptError}</p>}
             {withdrawError && <p className="mt-2 text-xs text-red-400">{withdrawError}</p>}
           </div>
