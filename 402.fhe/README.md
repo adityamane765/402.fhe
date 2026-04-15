@@ -87,7 +87,7 @@ The original design had an operator-run relay for withdrawals. The final impleme
 The proof is KMS-signed and tied to the specific on-chain handle — it cannot be fabricated, inflated, or redirected to a different address. A third party obtaining the proof gains nothing: `usdc.transfer` always pays `merchant`, and only `msg.sender == merchant` can call `fulfillWithdrawal`. No operator wallet, no relay, no trust assumption beyond the Zama KMS (same trust assumption as the FHE operations themselves).
 
 One critical implementation detail: `FHE.checkSignatures` expects the raw `abiEncodedClearValues` bytes from the SDK — not `abi.encode(amount)`. The KMS signs over the SDK's encoding; re-encoding in Solidity produces different bytes and causes `InvalidKMSSignatures`.
-
+ 
 ### Two-layer fraud prevention
 
 Pure optimistic settlement creates a fraud window — a buyer with zero balance could get free calls until the settlement batch runs. Two layers close this:

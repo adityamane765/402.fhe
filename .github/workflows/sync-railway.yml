@@ -27,4 +27,4 @@ jobs:
           git subtree split --prefix=402.fhe -b subtree-split
 
           # push that branch as main to the mirror, force so history doesn't conflict
-          git push https://exorcist073-svg:${{ secrets.RAILWAY_REPO_TOKEN }}@github.com/exorcist073-svg/402.fhe.git subtree-split:main --force
+          git push https://jpegwarrior:${{ secrets.RAILWAY_REPO_TOKEN }}@github.com/jpegwarrior/402.fhe.git subtree-split:main --force
