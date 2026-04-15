@@ -1,6 +1,7 @@
 import express from "express";
 import * as dotenv from "dotenv";
 import demoRoutes from "./demoApi";
+import { settleAll, getPendingCount } from "./x402Handler";
 import fs from "fs";
 import path from "path";
 
@@ -51,6 +52,33 @@ app.post("/register", (req, res) => {
     console.error("register error:", err);
     res.status(500).json({ error: "failed to update routes" });
   }
+});
+
+// settle pending proofs for a buyer or merchant address
+// either party can trigger this — no auth needed for prototype
+app.post("/settle", async (req, res) => {
+  const { address } = req.body;
+  try {
+    const count = await settleAll(address || undefined);
+    res.json({ ok: true, settled: count });
+  } catch (err) {
+    console.error("settle error:", err);
+    res.status(500).json({ error: "settlement failed" });
+  }
+});
+
+// how many unsettled calls are pending for an address
+app.get("/pending/:address", (req, res) => {
+  const routes = JSON.parse(fs.readFileSync(routesPath, "utf-8"));
+  const address = req.params.address.toLowerCase();
+
+  const pending: Record<number, number> = {};
+  for (const apiIdStr of Object.keys(routes)) {
+    const count = getPendingCount(address, Number(apiIdStr));
+    if (count > 0) pending[Number(apiIdStr)] = count;
+  }
+
+  res.json({ address, pending });
 });
 
 app.use(demoRoutes);
