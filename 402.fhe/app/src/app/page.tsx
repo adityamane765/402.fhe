@@ -9,8 +9,8 @@ export default function Home() {
         <span className="font-mono text-sm text-[#5a4f6a]">402.fhe</span>
         <div className="flex items-center gap-6 text-sm text-[#5a4f6a]">
           <Link href="/marketplace" className="hover:text-violet-400 transition-colors">marketplace</Link>
-          <Link href="/docs" className="hover:text-violet-400 transition-colors">docs</Link>
           <Link href="/dapp" className="hover:text-violet-400 transition-colors">dApp</Link>
+          <Link href="/docs" className="hover:text-violet-400 transition-colors">docs</Link>
         </div>
       </nav>
 

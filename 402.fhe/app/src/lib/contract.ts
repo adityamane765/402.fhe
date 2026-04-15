@@ -113,6 +113,26 @@ export const MARKETPLACE_ABI = [
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "apiIds", "type": "uint256[]"},
+      {"name": "buyers", "type": "address[]"},
+      {"name": "counts", "type": "uint256[]"}
+    ],
+    "name": "batchSettle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "buyer", "type": "address"},
+      {"indexed": false, "name": "callCount", "type": "uint256"}
+    ],
+    "name": "BatchSettled",
+    "type": "event"
   }
 ] as const;
 

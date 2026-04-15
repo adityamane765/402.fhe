@@ -32,6 +32,7 @@ contract FHE402Marketplace is ZamaEthereumConfig {
     event ApiListed(uint256 indexed id, address indexed merchant, string name, uint64 price);
     event Deposited(address indexed buyer, uint64 amount);
     event CallSettled(uint256 indexed apiId, address indexed buyer);
+    event BatchSettled(address indexed buyer, uint256 callCount);
     event WithdrawalRequested(address indexed merchant);
     event Withdrawn(address indexed merchant, uint256 amount);
     event FeesWithdrawalRequested();
@@ -83,6 +84,55 @@ contract FHE402Marketplace is ZamaEthereumConfig {
         require(msg.sender == middleware, "not middleware");
         uint64 price = listings[apiId].price;
         return FHE.le(FHE.asEuint64(price), balances[buyer]);
+    }
+
+    function batchSettle(
+        uint256[] calldata apiIds,
+        address[] calldata buyers,
+        uint256[] calldata counts
+    ) external {
+        require(msg.sender == middleware, "not middleware");
+        require(apiIds.length == buyers.length && buyers.length == counts.length, "length mismatch");
+
+        uint256 totalCalls = 0;
+
+        for (uint256 i = 0; i < apiIds.length; i++) {
+            uint256 apiId = apiIds[i];
+            address buyer = buyers[i];
+            uint256 count = counts[i];
+            require(count > 0 && count <= 50, "count out of range");
+            require(listings[apiId].active, "api not active");
+
+            uint64 price = listings[apiId].price;
+            uint64 merchantCut = price * 9 / 10;
+            uint64 protocolCut = price - merchantCut;
+            address merchant = listings[apiId].merchant;
+
+            for (uint256 j = 0; j < count; j++) {
+                euint64 bal = balances[buyer];
+                ebool affordable = FHE.le(FHE.asEuint64(price), bal);
+
+                euint64 newBal = FHE.select(affordable, FHE.sub(bal, FHE.asEuint64(price)), bal);
+                newBal = FHE.allow(newBal, buyer);
+                newBal = FHE.allowThis(newBal);
+                newBal = FHE.makePubliclyDecryptable(newBal);
+                balances[buyer] = newBal;
+
+                euint64 newRevenue = FHE.add(revenue[merchant], FHE.select(affordable, FHE.asEuint64(merchantCut), FHE.asEuint64(0)));
+                newRevenue = FHE.allow(newRevenue, merchant);
+                newRevenue = FHE.allowThis(newRevenue);
+                newRevenue = FHE.makePubliclyDecryptable(newRevenue);
+                revenue[merchant] = newRevenue;
+
+                protocolFees = FHE.add(protocolFees, FHE.select(affordable, FHE.asEuint64(protocolCut), FHE.asEuint64(0)));
+                protocolFees = FHE.allowThis(protocolFees);
+            }
+
+            totalCalls += count;
+            emit CallSettled(apiId, buyer);
+        }
+
+        emit BatchSettled(buyers.length > 0 ? buyers[0] : address(0), totalCalls);
     }
 
     function settleCall(uint256 apiId, address buyer) external {

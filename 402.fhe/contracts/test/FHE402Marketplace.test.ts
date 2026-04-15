@@ -120,4 +120,36 @@ describe("FHE402Marketplace", function () {
     await expect(marketplace.connect(buyer).canAfford(0, buyer.address))
       .to.be.revertedWith("not middleware");
   });
+
+  it("Test 9: batchSettle — settles multiple calls in one tx", async function () {
+    await marketplace.connect(merchant).listApi("API", "Desc", 2_000_000n);
+    await usdc.connect(buyer).approve(await marketplace.getAddress(), 20_000_000n);
+    await marketplace.connect(buyer).deposit(20_000_000n);
+
+    // batch settle 3 calls to apiId 0 for buyer
+    await expect(
+      marketplace.connect(middleware).batchSettle([0], [buyer.address], [3])
+    ).to.emit(marketplace, "BatchSettled");
+
+    const buyerHandle = await marketplace.connect(buyer).getBalance(buyer.address);
+    const buyerBal = await hre.fhevm.debugger.decryptEuint(FhevmType.euint64, buyerHandle);
+    expect(buyerBal).to.equal(14_000_000n); // 20 - 3*2 = 14
+
+    const merchantHandle = await marketplace.connect(merchant).getRevenue(merchant.address);
+    const merchantRev = await hre.fhevm.debugger.decryptEuint(FhevmType.euint64, merchantHandle);
+    expect(merchantRev).to.equal(5_400_000n); // 3 * 1.8 = 5.4
+  });
+
+  it("Test 10: batchSettle — access control", async function () {
+    await expect(
+      marketplace.connect(owner).batchSettle([0], [buyer.address], [1])
+    ).to.be.revertedWith("not middleware");
+  });
+
+  it("Test 11: batchSettle — count cap enforced", async function () {
+    await marketplace.connect(merchant).listApi("API", "Desc", 2_000_000n);
+    await expect(
+      marketplace.connect(middleware).batchSettle([0], [buyer.address], [51])
+    ).to.be.revertedWith("count out of range");
+  });
 });
