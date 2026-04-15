@@ -50,6 +50,13 @@ export default function MerchantPage() {
   const [regStatus, setRegStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [regError, setRegError] = useState("");
 
+  // edit state — which apiId row is expanded for editing
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editPath, setEditPath] = useState("");
+  const [editEndpoint, setEditEndpoint] = useState("");
+  const [editStatus, setEditStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [editError, setEditError] = useState("");
+
   // fetch this merchant's listings from ApiListed events
   useEffect(() => {
     if (!publicClient || !address || !CONTRACT_ADDRESS) return;
@@ -152,6 +159,32 @@ export default function MerchantPage() {
     } catch (err: unknown) {
       setRegStatus("error");
       setRegError(err instanceof Error ? err.message : "registration failed");
+    }
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingId === null || !editPath || !editEndpoint) return;
+    setEditStatus("loading");
+    setEditError("");
+    try {
+      const res = await fetch(`${MIDDLEWARE_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiId: editingId, path: editPath, endpoint: editEndpoint }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "update failed");
+      }
+      setEditStatus("done");
+      setTimeout(() => {
+        setEditingId(null);
+        setEditStatus("idle");
+      }, 1500);
+    } catch (err: unknown) {
+      setEditStatus("error");
+      setEditError(err instanceof Error ? err.message : "update failed");
     }
   };
 
@@ -304,18 +337,62 @@ export default function MerchantPage() {
             )}
             <div className="divide-y divide-[#1e1730]">
               {myApis.map((api) => (
-                <div key={api.id} className="px-6 py-4 flex items-center gap-4">
-                  <span className="text-[10px] font-mono text-[#3a2f4a]">#{api.id}</span>
-                  <span className="text-sm text-white flex-1">{api.name}</span>
-                  <span className="text-xs font-mono text-violet-400">
-                    ${(Number(api.price) / 1_000_000).toFixed(2)}/call
-                  </span>
-                  <Link
-                    href={`/marketplace`}
-                    className="text-xs text-[#5a4f6a] hover:text-violet-400 transition-colors"
-                  >
-                    view →
-                  </Link>
+                <div key={api.id}>
+                  <div className="px-6 py-4 flex items-center gap-4">
+                    <span className="text-[10px] font-mono text-[#3a2f4a]">#{api.id}</span>
+                    <span className="text-sm text-white flex-1">{api.name}</span>
+                    <span className="text-xs font-mono text-violet-400">
+                      ${(Number(api.price) / 1_000_000).toFixed(2)}/call
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (editingId === api.id) {
+                          setEditingId(null);
+                        } else {
+                          setEditingId(api.id);
+                          setEditPath("");
+                          setEditEndpoint("");
+                          setEditStatus("idle");
+                          setEditError("");
+                        }
+                      }}
+                      className="text-xs text-[#5a4f6a] hover:text-violet-400 transition-colors"
+                    >
+                      {editingId === api.id ? "cancel" : "edit →"}
+                    </button>
+                  </div>
+
+                  {editingId === api.id && (
+                    <div className="px-6 pb-5 border-t border-[#1e1730] pt-4">
+                      <p className="text-xs text-[#5a4f6a] mb-3">
+                        Update the middleware registration for <span className="text-violet-400 font-mono">#{api.id}</span>.
+                      </p>
+                      <form onSubmit={handleEdit} className="flex flex-col gap-3">
+                        <input
+                          type="text"
+                          value={editPath}
+                          onChange={(e) => setEditPath(e.target.value)}
+                          placeholder="Path slug (e.g. /api/myweather)"
+                          className={inputCls}
+                        />
+                        <input
+                          type="text"
+                          value={editEndpoint}
+                          onChange={(e) => setEditEndpoint(e.target.value)}
+                          placeholder="Backend URL (e.g. https://myapi.com/weather)"
+                          className={inputCls}
+                        />
+                        <button
+                          type="submit"
+                          disabled={editStatus === "loading"}
+                          className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2 text-sm transition-colors disabled:opacity-30"
+                        >
+                          {editStatus === "loading" ? "Saving..." : editStatus === "done" ? "Saved ✓" : "Save"}
+                        </button>
+                      </form>
+                      {editError && <p className="mt-2 text-xs text-red-400">{editError}</p>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

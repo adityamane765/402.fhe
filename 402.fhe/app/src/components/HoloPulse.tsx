@@ -22,8 +22,8 @@ export function HoloPulse({ label = "confirming" }: HoloPulseProps) {
         <div className="absolute inset-0 bg-violet-500/10 blur-xl rounded-full scale-150 animate-pulse" />
 
         <div className="absolute inset-0 flex items-center justify-center opacity-20">
-          <div className="absolute w-[1px] h-16 bg-violet-500" />
-          <div className="absolute w-16 h-[1px] bg-violet-500" />
+          <div className="absolute w-px h-16 bg-violet-500" />
+          <div className="absolute w-16 h-px bg-violet-500" />
         </div>
 
         <div className="relative p-2 border border-dashed border-violet-500/20 rounded-full animate-[spin_2s_linear_infinite]">

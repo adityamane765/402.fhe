@@ -1,0 +1,24 @@
+name: Sync to Railway Repo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Push to Railway mirror
+        run: |
+          git config --global user.name "sync-bot"
+          git config --global user.email "sync@github.com"
+          git remote add mirror https://exorcist073-svg:${{ secrets.RAILWAY_REPO_TOKEN }}@github.com/exorcist073-svg/402.fhe.git
+          git push mirror main --force
