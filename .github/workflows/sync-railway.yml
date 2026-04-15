@@ -1,9 +1,11 @@
-name: Sync to Railway Repo
+name: Sync 402.fhe to Railway Repo
 
 on:
   push:
     branches:
       - main
+    paths:
+      - '402.fhe/**'
 
 jobs:
   sync:
@@ -16,9 +18,9 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Push to Railway mirror
+      - name: Push 402.fhe subtree to Railway mirror
         run: |
           git config --global user.name "sync-bot"
           git config --global user.email "sync@github.com"
           git remote add mirror https://exorcist073-svg:${{ secrets.RAILWAY_REPO_TOKEN }}@github.com/exorcist073-svg/402.fhe.git
-          git push mirror main --force
+          git subtree push --prefix=402.fhe mirror main --force
