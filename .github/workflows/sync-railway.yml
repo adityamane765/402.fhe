@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -22,5 +22,9 @@ jobs:
         run: |
           git config --global user.name "sync-bot"
           git config --global user.email "sync@github.com"
-          git remote add mirror https://exorcist073-svg:${{ secrets.RAILWAY_REPO_TOKEN }}@github.com/exorcist073-svg/402.fhe.git
-          git subtree push --prefix=402.fhe mirror main --force
+
+          # extract 402.fhe/ as a standalone branch
+          git subtree split --prefix=402.fhe -b subtree-split
+
+          # push that branch as main to the mirror, force so history doesn't conflict
+          git push https://exorcist073-svg:${{ secrets.RAILWAY_REPO_TOKEN }}@github.com/exorcist073-svg/402.fhe.git subtree-split:main --force
