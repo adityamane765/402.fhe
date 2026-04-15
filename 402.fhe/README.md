@@ -82,7 +82,7 @@ The original design had an operator-run relay for withdrawals. The final impleme
 1. Contract calls `FHE.makePubliclyDecryptable(handle)` on every balance/revenue update
 2. When withdrawing, user calls `instance.publicDecrypt([handle])` from their browser — this hits the Zama KMS gateway and returns `{ abiEncodedClearValues, decryptionProof }`
 3. User submits `fulfillWithdrawal(merchant, abiEncodedClearValues, decryptionProof)` on-chain
-4. Contract verifies via `FHE.checkSignatures(handles, abiEncodedCleartexts, proof)` then transfers
+4. Contract verifies via `FHE.checkSignatures(handles, abiEncodedCleartexts, proof)` then transfers 
 
 The proof is KMS-signed and tied to the specific on-chain handle — it cannot be fabricated, inflated, or redirected to a different address. A third party obtaining the proof gains nothing: `usdc.transfer` always pays `merchant`, and only `msg.sender == merchant` can call `fulfillWithdrawal`. No operator wallet, no relay, no trust assumption beyond the Zama KMS (same trust assumption as the FHE operations themselves).
 
