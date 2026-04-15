@@ -6,7 +6,7 @@ A confidential API marketplace built on [Zama fhEVM](https://www.zama.ai). Merch
 
 - Frontend: https://402-fhe.vercel.app
 - Middleware: https://402fhe-production.up.railway.app
-- Contract: `0x674182eaA4d180619d99f914E33028e1D6483785` on Ethereum Sepolia
+- Contract: `0x8B631d8C62B4aC6010B2832Cf3bb32471BfECFB0` on Ethereum Sepolia
 
 ---
 
@@ -30,15 +30,16 @@ buyer calls API via HTTP (GET /your/api)
   → middleware: verifies signature
                calls canAfford(apiId, buyer) as eth_call — ~50ms, no gas
                checks local in-memory reserve (race condition guard)
-               reserves price locally
+               stores signed proof off-chain — NO on-chain tx per call
   → API response returned immediately
-  → [background] settleCall(apiId, buyer) on-chain — FHE mux updates balances
 
-merchant accumulates revenue
-  → stored as euint64 on-chain, encrypted per-merchant
-  → merchant decrypts in browser using Zama KMS
-  → merchant withdraws — no operator involvement
+buyer or merchant triggers settlement (anytime)
+  → middleware calls batchSettle(apiIds, buyers, counts) — one tx for N calls
+  → FHE mux settles all accumulated calls in a single transaction
+  → buyer balance decremented, merchant revenue incremented — both encrypted
 ```
+
+This is the state channel model: calls accumulate as signed proofs off-chain, settlement happens on-chain only when either party wants it. N calls cost the same gas as 2 transactions (deposit + settle).
 
 ---
 
@@ -48,9 +49,18 @@ merchant accumulates revenue
 
 API prices are public — merchants set them at listing time, buyers see them before depositing. What's private is who called which API, how often, and what anyone earned. This was a deliberate scope decision: overclaiming privacy on prices adds nothing and makes the system harder to reason about. The FHE budget is spent where it matters.
 
+### Independent channels per party
+
+Rather than bilateral buyer-merchant payment channels (which require cooperative close and dispute mechanisms), each party owns their own encrypted state:
+
+- `balances[buyer]` — buyer's global encrypted balance, works across all merchants
+- `revenue[merchant]` — merchant's global encrypted revenue, accumulates from all buyers
+
+Either party can trigger settlement independently at any time. No cooperative close, no dispute window, no counterparty dependency. The middleware holds cryptographic evidence (buyer's signatures) for every unsettled call — if the middleware misbehaves and inflates counts, buyers can prove it never happened.
+
 ### FHE mux settlement
 
-`settleCall` never decrypts anything. It computes:
+`batchSettle` never decrypts anything. For each call in the batch it computes:
 
 ```solidity
 ebool affordable = FHE.le(price, balances[buyer]);
@@ -110,9 +120,9 @@ The x402 protocol is scheme-extensible. This project introduces `fhe-402` alongs
 
 ```
 contracts/    Solidity + Hardhat + fhEVM — FHE402Marketplace.sol
-middleware/   Node.js/Express x402 fhe-402 scheme handler + route proxy
+middleware/   Node.js/Express x402 fhe-402 scheme handler + proof store
 agent/        Python AI agent client demo
-app/          Next.js frontend (marketplace, buyer, merchant, operator views)
+app/          Next.js frontend (marketplace, buyer, merchant views)
 ```
 
 ---
@@ -122,17 +132,22 @@ app/          Next.js frontend (marketplace, buyer, merchant, operator views)
 ```bash
 # contracts
 cd contracts && npm install
-npx hardhat test          # 8 tests, all passing
+npx hardhat test          # 11 tests, all passing
 
 # middleware
 cd middleware && npm install
-cp .env.example .env      # PRIVATE_KEY, CONTRACT_ADDRESS, SEPOLIA_RPC_URL
+cp .env.example .env      # MIDDLEWARE_PRIVATE_KEY, CONTRACT_ADDRESS, SEPOLIA_RPC_URL
 npm run dev               # port 3001
 
 # frontend
 cd app && npm install
 cp .env.example .env.local   # NEXT_PUBLIC_CONTRACT_ADDRESS, NEXT_PUBLIC_MIDDLEWARE_URL
 npm run dev               # port 3000
+
+# agent
+cd agent && pip install -r requirements.txt
+cp .env.example .env      # AGENT_PRIVATE_KEY, CONTRACT_ADDRESS, MIDDLEWARE_URL, SEPOLIA_RPC_URL
+python agent.py
 ```
 
 **Deploying the contract**
@@ -163,13 +178,13 @@ After deploy: update `NEXT_PUBLIC_CONTRACT_ADDRESS` in Vercel dashboard and `CON
 
 ## Roadmap
 
-### Phase 2 — FHE state channels
-Open an encrypted payment channel once, exchange signed proofs off-chain per request, batch settle to L1. Eliminates per-call settlement gas while preserving the FHE privacy guarantees. Enables high-frequency micropayments (thousands of calls/minute) without on-chain overhead.
+### Phase 2 — FHE state channels ✅
+Independent encrypted channels per party. Calls accumulate as signed proofs off-chain, `batchSettle` commits N calls in one tx. Either party settles unilaterally — no cooperative close, no dispute window.
 
-### Phase 4 — protocol
-Formalize `fhe-channel` as an x402 scheme extension proposal (EIP or x402 spec PR). Privacy-preserving HTTP payments as a drop-in scheme for the entire x402 ecosystem — not just this marketplace.
+### Phase 3 — protocol
+Formalize `fhe-402` as an x402 scheme extension proposal (EIP or x402 spec PR). Privacy-preserving HTTP payments as a drop-in scheme for the entire x402 ecosystem — not just this marketplace.
 
-### Phase 5 — horizontal scale
+### Phase 4 — horizontal scale
 Replace in-memory reserve map with Redis atomic increment for multi-instance middleware deployments. Required for production load — not MVP scope.
 
 ---

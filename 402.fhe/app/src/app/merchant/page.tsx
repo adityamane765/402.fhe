@@ -6,6 +6,7 @@ import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib
 import { useUserDecrypt } from "@/lib/useUserDecrypt";
 import { usePublicDecryptWithdraw } from "@/lib/usePublicDecrypt";
 import ConnectButton from "@/components/ConnectButton";
+import { HoloPulse } from "@/components/HoloPulse";
 import Link from "next/link";
 
 interface MyApi {
@@ -177,19 +178,24 @@ export default function MerchantPage() {
           <p className="text-sm text-[#5a4f6a] mb-5">
             Set your price per call in USDC. Buyers see the price — only your earnings stay private.
           </p>
-          <form onSubmit={handleListApi} className="flex flex-col gap-4">
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="API name (e.g. Weather API)" className={inputCls} />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short description" rows={3} className={`${inputCls} resize-none`} />
-            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price per call in USDC (e.g. 2.00)" step="0.01" className={inputCls} />
-            <button
-              type="submit"
-              disabled={isListing || !isConnected}
-              className="border border-emerald-800/60 text-emerald-400 hover:bg-emerald-950/30 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30"
-            >
-              {isListing ? "Listing..." : "List API"}
-            </button>
-          </form>
-          
+
+          {isListing ? (
+            <HoloPulse label="confirming on-chain" />
+          ) : (
+            <form onSubmit={handleListApi} className="flex flex-col gap-4">
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="API name (e.g. Weather API)" className={inputCls} />
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short description" rows={3} className={`${inputCls} resize-none`} />
+              <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price per call in USDC (e.g. 2.00)" step="0.01" className={inputCls} />
+              <button
+                type="submit"
+                disabled={!isConnected}
+                className="border border-emerald-800/60 text-emerald-400 hover:bg-emerald-950/30 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30"
+              >
+                List API
+              </button>
+            </form>
+          )}
+
           {listed && (
             <p className="mt-3 text-sm text-emerald-400">API listed. It is now live on the marketplace.</p>
           )}
