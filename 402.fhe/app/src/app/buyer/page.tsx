@@ -107,7 +107,7 @@ function BuyerPageInner() {
       address: CONTRACT_ADDRESS,
       event: parseAbiItem("event CallSettled(uint256 indexed apiId, address indexed buyer)"),
       args: { buyer: address },
-      fromBlock: BigInt(10436000),
+      fromBlock: BigInt(10620000),
     }).then((logs) => {
       setCallHistory(logs.map((l) => ({
         apiId: String(l.args.apiId ?? "?"),
