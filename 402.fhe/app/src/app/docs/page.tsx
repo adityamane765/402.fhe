@@ -1,40 +1,26 @@
 import Link from "next/link";
 
 const stats = [
-  { label: "calls settled", value: "on-chain" },
-  { label: "operator visibility", value: "zero" },
   { label: "gas per API call", value: "none" },
+  { label: "operator visibility", value: "zero" },
+  { label: "calls per settle tx", value: "up to 50" },
   { label: "encryption", value: "FHE" },
 ];
 
 const steps = [
-  { step: "01", title: "Deposit", body: "Buyer deposits USDC. Balance is wrapped as an encrypted euint64 — only the buyer can decrypt it." },
-  { step: "02", title: "Request", body: "Buyer hits the API endpoint. Middleware issues a 402 challenge with a nonce." },
-  { step: "03", title: "Sign", body: "Buyer signs the nonce with their wallet. No gas. No transaction. Just a signature." },
-  { step: "04", title: "Settle", body: "Middleware verifies, proxies to merchant, then queues an on-chain settleCall — FHE mux deducts only if affordable." },
+  { step: "01", title: "Deposit", body: "Buyer deposits USDC once. The balance is wrapped as an encrypted euint64 on-chain — only the buyer can decrypt it via the Zama KMS." },
+  { step: "02", title: "Request", body: "Buyer hits the API endpoint. Middleware issues a 402 challenge containing the apiId and a random nonce." },
+  { step: "03", title: "Sign & Pay", body: "Buyer signs the nonce with their wallet key and retries with an X-Payment header. No gas. No transaction. Just a signature." },
+  { step: "04", title: "Proof stored", body: "Middleware verifies the signature, runs canAfford as a gas-free eth_call, then stores the signed proof off-chain. The API response is returned immediately." },
+  { step: "05", title: "Settle", body: "Either the buyer or merchant triggers settlement at any time. The middleware calls batchSettle — one transaction for N accumulated calls. The FHE mux deducts from the buyer's encrypted balance and credits the merchant's encrypted revenue without decrypting either." },
 ];
 
 const sections = [
-  {
-    id: "intro",
-    label: "The problem",
-  },
-  {
-    id: "overview",
-    label: "Overview",
-  },
-  {
-    id: "how-it-works",
-    label: "How it works",
-  },
-  {
-    id: "fhe-guarantee",
-    label: "FHE guarantee",
-  },
-  {
-    id: "contract",
-    label: "Contract",
-  },
+  { id: "intro", label: "The problem" },
+  { id: "overview", label: "Overview" },
+  { id: "how-it-works", label: "How it works" },
+  { id: "fhe-guarantee", label: "FHE guarantee" },
+  { id: "contract", label: "Contract" },
 ];
 
 export default function DocsPage() {
@@ -44,7 +30,7 @@ export default function DocsPage() {
         <Link href="/" className="font-mono text-sm text-[#5a4f6a] hover:text-violet-400 transition-colors">
           ← 402.fhe
         </Link>
-        <Link href="/dapp" className="text-xs font-mono text-[#3a2f4a]">dApp</Link>
+        <Link href="/marketplace" className="text-xs font-mono text-[#3a2f4a] hover:text-violet-400 transition-colors">marketplace →</Link>
       </nav>
 
       <div className="max-w-5xl mx-auto px-6 py-16 flex gap-16">
@@ -74,21 +60,20 @@ export default function DocsPage() {
             <h1 className="text-4xl font-bold text-white mb-4">How 402.fhe works</h1>
             <div className="text-[#5a4f6a] leading-relaxed max-w-2xl space-y-4">
               <p>
-                API marketplaces today require trust in the operator. The platform can see how much every buyer has deposited, how much every merchant has earned, and which APIs are being called most. That data is valuable and it shouldn't be visible to anyone who doesn't need it.
+                API marketplaces today require trust in the operator. The platform can see how much every buyer has deposited, how much every merchant has earned, and which APIs are being called most. For autonomous AI agents transacting at scale, that's sensitive business intelligence leaking by design.
               </p>
               <p>
                 402.fhe fixes this with{" "}
-                <a href="https://www.zama.ai" className="text-violet-400 hover:text-violet-300 transition-colors" target="_blank" rel="noopener">Zama fhEVM</a>
-                . 
-                <br></br>
-                Buyer balances and merchant revenues are stored as ciphertexts on-chain. Payments settle automatically via the middleware — no operator action needed. The operator's only active role is processing withdrawal requests, and even then they never see a plaintext amount. Cryptographically enforced, not a policy claim.
+                <a href="https://www.zama.ai" className="text-violet-400 hover:text-violet-300 transition-colors" target="_blank" rel="noopener">Zama fhEVM</a>.{" "}
+                Buyer balances and merchant revenues are stored as ciphertexts on-chain. The operator runs the infrastructure but is cryptographically blind to the financial data — not a policy claim, a math claim.
               </p>
               <div className="flex flex-col gap-2 pt-1">
                 {[
                   "Merchants list APIs with cleartext prices.",
+                  "Buyers deposit USDC once — balance is encrypted on-chain.",
                   "AI agents pay per call via x402 HTTP payments — no gas, just a wallet signature.",
-                  "The middleware verifies the signature and proxies the request to the merchant.",
-                  "Settlement happens on-chain via an FHE mux that deducts from the buyer's encrypted balance only if they can afford it.",
+                  "Calls accumulate as signed proofs off-chain. Settlement is one transaction for N calls.",
+                  "Either party settles at any time. No cooperative close, no dispute window.",
                 ].map((line, i) => (
                   <div key={i} className="flex gap-3 items-start">
                     <span className="text-[#3a2f4a] font-mono text-xs mt-0.5 shrink-0">{String(i + 1).padStart(2, "0")}</span>
@@ -145,17 +130,15 @@ export default function DocsPage() {
                 </p>
                 <p>
                   The FHE mux inside{" "}
-                  <code className="text-violet-400 font-mono text-xs bg-violet-950/60 px-1.5 py-0.5 rounded">settleCall</code>{" "}
-                  deducts from the buyer balance and adds to merchant revenue — all without decrypting either value. The deduction only happens if an encrypted{" "}
+                  <code className="text-violet-400 font-mono text-xs bg-violet-950/60 px-1.5 py-0.5 rounded">batchSettle</code>{" "}
+                  deducts from the buyer balance and credits merchant revenue — all without decrypting either value. Every update is gated on an encrypted{" "}
                   <code className="text-violet-400 font-mono text-xs bg-violet-950/60 px-1.5 py-0.5 rounded">ebool</code>{" "}
-                  (affordable flag) is true.
+                  (affordable flag). If the buyer can't pay, nothing changes — and the operator can't tell either way.
                 </p>
                 <p>
-                  Withdrawals use a two-step event relay: the merchant emits a{" "}
-                  <code className="text-violet-400 font-mono text-xs bg-violet-950/60 px-1.5 py-0.5 rounded">requestWithdrawal</code>{" "}
-                  event, the operator decrypts off-chain via the KMS, then calls{" "}
-                  <code className="text-violet-400 font-mono text-xs bg-violet-950/60 px-1.5 py-0.5 rounded">fulfillWithdrawal</code>{" "}
-                  with a KMS proof.
+                  Withdrawals are fully self-serve. The contract marks every balance and revenue update as publicly decryptable via the Zama KMS. When withdrawing, the user calls{" "}
+                  <code className="text-violet-400 font-mono text-xs bg-violet-950/60 px-1.5 py-0.5 rounded">publicDecrypt</code>{" "}
+                  from their browser, gets back a KMS-signed proof, and submits it on-chain. No operator wallet, no relay.
                 </p>
               </div>
               <div className="shrink-0 font-mono text-xs leading-7 bg-[#0f0d1a] border border-[#1e1730] rounded-xl p-6">
@@ -163,7 +146,7 @@ export default function DocsPage() {
                 <div><span className="text-violet-500">buyer</span><span className="text-[#5a4f6a]">.balance  = </span><span className="text-pink-400">0x7f3a9c...</span></div>
                 <div><span className="text-violet-500">merchant</span><span className="text-[#5a4f6a]">.revenue = </span><span className="text-pink-400">0xc2d18e...</span></div>
                 <div><span className="text-violet-500">protocol</span><span className="text-[#5a4f6a]">.fees    = </span><span className="text-pink-400">0x09ef31...</span></div>
-                <div className="mt-2 text-[#3a2f4a]">{"// no usage data leakage"}</div>
+                <div className="mt-2 text-[#3a2f4a]">{"// operator is blind by math"}</div>
               </div>
             </div>
           </section>
@@ -172,24 +155,22 @@ export default function DocsPage() {
           <section id="contract" className="mb-16 scroll-mt-8">
             <h2 className="text-xl font-semibold text-white mb-6">Contract</h2>
             <div className="space-y-4">
-              {/* addresses */}
               <div className="bg-[#12102a] border border-[#1e1730] rounded-xl overflow-hidden">
                 <div className="grid grid-cols-1 divide-y divide-[#1e1730]">
                   <div className="px-5 py-4 flex items-center justify-between gap-4">
                     <span className="text-xs font-mono text-[#3a2f4a] uppercase tracking-widest shrink-0">Contract · Sepolia</span>
-                    <code className="text-violet-400 font-mono text-xs">0x4Ff4a147f6e052398B8C0962c6cd4Fa4f34d2826</code>
+                    <code className="text-violet-400 font-mono text-xs">0x34e412625DF16F8397B31CD122C8320f85b5c0A5</code>
                   </div>
                   <div className="px-5 py-4 flex items-center justify-between gap-4">
                     <span className="text-xs font-mono text-[#3a2f4a] uppercase tracking-widest shrink-0">Payment token</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-[#3a2f4a] text-xs shrink-0">USDC</span>
+                      <span className="text-[#3a2f4a] text-xs shrink-0">USDC · Sepolia</span>
                       <code className="text-violet-400 font-mono text-xs">0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238</code>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* functions */}
               <div className="bg-[#12102a] border border-[#1e1730] rounded-xl overflow-hidden">
                 <div className="px-5 py-3 border-b border-[#1e1730]">
                   <span className="text-xs font-mono text-[#3a2f4a] uppercase tracking-widest">Key functions</span>
@@ -198,10 +179,11 @@ export default function DocsPage() {
                   {[
                     { fn: "listApi(name, description, price)", desc: "Merchant lists an API with a cleartext USDC price per call." },
                     { fn: "deposit(amount)", desc: "Buyer deposits USDC. Balance is encrypted as euint64 on-chain." },
-                    { fn: "canAfford(apiId, buyer)", desc: "Middleware-only eth_call. Returns encrypted ebool — no plaintext." },
-                    { fn: "settleCall(apiId, buyer)", desc: "Middleware-only. FHE mux deducts from buyer, credits merchant and protocol — all encrypted." },
-                    { fn: "requestWithdrawal()", desc: "Merchant signals intent to withdraw. Starts the two-step off-chain relay." },
-                    { fn: "fulfillWithdrawal(merchant, amount, proof)", desc: "Owner submits KMS proof to release funds." },
+                    { fn: "canAfford(apiId, buyer)", desc: "Middleware-only gas-free eth_call. Returns encrypted ebool — no plaintext leaks." },
+                    { fn: "batchSettle(apiIds, buyers, counts)", desc: "Middleware-only. Settles N accumulated calls in one tx via FHE mux — all encrypted throughout." },
+                    { fn: "requestWithdrawal()", desc: "Buyer or merchant signals intent to withdraw. Sets withdrawalPending flag." },
+                    { fn: "fulfillWithdrawal(merchant, cleartexts, proof)", desc: "Merchant submits KMS-signed proof from their browser. Contract verifies and transfers USDC." },
+                    { fn: "fulfillBuyerWithdrawal(buyer, cleartexts, proof)", desc: "Buyer submits KMS-signed proof from their browser. Contract verifies and transfers USDC." },
                   ].map((item) => (
                     <div key={item.fn} className="px-5 py-3.5 flex flex-col md:flex-row md:items-center gap-1 md:gap-6">
                       <code className="text-violet-400 font-mono text-xs shrink-0">{item.fn}</code>
