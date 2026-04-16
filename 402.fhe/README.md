@@ -6,7 +6,7 @@ A confidential API marketplace built on [Zama fhEVM](https://www.zama.ai). Merch
 
 - Frontend: https://402-fhe.vercel.app
 - Middleware: https://402fhe-production-3482.up.railway.app
-- Contract: `0x8B631d8C62B4aC6010B2832Cf3bb32471BfECFB0` on Ethereum Sepolia
+- Contract: `0x34e412625DF16F8397B31CD122C8320f85b5c0A5` on Ethereum Sepolia
 
 ---
 

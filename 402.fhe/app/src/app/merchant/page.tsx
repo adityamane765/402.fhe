@@ -70,7 +70,7 @@ export default function MerchantPage() {
       address: CONTRACT_ADDRESS,
       event: parseAbiItem("event ApiListed(uint256 indexed id, address indexed merchant, string name, uint64 price)"),
       args: { merchant: address },
-      fromBlock: BigInt(10620000),
+      fromBlock: BigInt(10668000),
     }).then((logs) => {
       setMyApis(logs.map((l) => ({
         id: Number(l.args.id ?? 0),

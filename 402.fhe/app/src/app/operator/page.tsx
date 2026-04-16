@@ -48,7 +48,7 @@ export default function OperatorPage() {
 
     async function fetchData() {
       try {
-        const fromBlock = BigInt(10620000);
+        const fromBlock = BigInt(10668000);
         const [depositLogs, listLogs, settleLogs, withdrawalRequestedLogs, withdrawnLogs] = await Promise.all([
           publicClient!.getLogs({
             address: CONTRACT_ADDRESS,

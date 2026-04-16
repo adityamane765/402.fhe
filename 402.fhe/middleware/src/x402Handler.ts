@@ -57,6 +57,21 @@ function getPendingCount(buyer: string, apiId: number): number {
   return (proofStore.get(proofKey(buyer, apiId)) || []).length;
 }
 
+// count unsettled calls for an address, matching as buyer OR merchant
+// returns a map of apiId → count so the frontend can show per-api breakdowns
+function getPendingForAddress(address: string): Record<number, number> {
+  const addr = address.toLowerCase();
+  const result: Record<number, number> = {};
+  for (const [, proofs] of proofStore.entries()) {
+    if (proofs.length === 0) continue;
+    const { buyerAddress, merchantAddress, apiId } = proofs[0];
+    if (buyerAddress.toLowerCase() === addr || merchantAddress.toLowerCase() === addr) {
+      result[apiId] = (result[apiId] || 0) + proofs.length;
+    }
+  }
+  return result;
+}
+
 // returns total pending deduction for a buyer across all apis
 function getPendingDeduction(buyer: string): bigint {
   let total = 0n;
@@ -222,4 +237,4 @@ const fhe402Middleware = (apiId: number) => {
   };
 };
 
-export { fhe402Middleware, getPendingCount, getPendingDeduction, settleByKey };
+export { fhe402Middleware, getPendingCount, getPendingDeduction, getPendingForAddress, settleByKey };

@@ -1,7 +1,7 @@
 import express from "express";
 import * as dotenv from "dotenv";
 import demoRoutes from "./demoApi";
-import { settleAll, getPendingCount, getPendingDeduction } from "./x402Handler";
+import { settleAll, getPendingDeduction, getPendingForAddress } from "./x402Handler";
 import fs from "fs";
 import path from "path";
 
@@ -68,16 +68,12 @@ app.post("/settle", async (req, res) => {
 
 // how many unsettled calls are pending for an address (works for both buyer and merchant)
 app.get("/pending/:address", (req, res) => {
-  const routes = JSON.parse(fs.readFileSync(routesPath, "utf-8"));
   const address = req.params.address.toLowerCase();
 
-  const pending: Record<number, number> = {};
-  for (const apiIdStr of Object.keys(routes)) {
-    const count = getPendingCount(address, Number(apiIdStr));
-    if (count > 0) pending[Number(apiIdStr)] = count;
-  }
+  // matches proofs where address is either buyer or merchant
+  const pending = getPendingForAddress(address);
 
-  // total usdc pending deduction for this buyer — frontend uses this to show adjusted balance
+  // total usdc pending deduction — only meaningful when address is the buyer
   const pendingDeduction = getPendingDeduction(address).toString();
 
   res.json({ address, pending, pendingDeduction });
