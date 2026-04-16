@@ -244,33 +244,38 @@ function BuyerPageInner() {
           <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-base font-semibold text-white">Your Balance</h2>
-              <span className="text-[10px] font-mono text-[#3a2f4a] uppercase tracking-widest">encrypted on-chain</span>
+              <span className="text-[10px] font-mono text-violet-600 uppercase tracking-widest">fhe-encrypted</span>
             </div>
-            <p className="text-xs text-[#5a4f6a] mb-4">
-              Only you can decrypt this. Sign with your wallet to reveal your balance — the operator never sees it.
+            <p className="text-xs text-[#5a4f6a] mb-5">
+              Stored as a ciphertext on-chain. Only you can decrypt it — the operator never sees your balance.
             </p>
-            <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-4">
-              <span className="text-sm text-[#5a4f6a]">Available balance</span>
-              {clearBalance !== null ? (
-                <div className="text-right">
-                  <span className="text-sm font-mono text-emerald-400">
-                    ${(Number(clearBalance) / 1_000_000).toFixed(6)} USDC
-                  </span>
-                  {pendingDeduction > 0n && (
-                    <>
-                      <div className="text-xs font-mono text-amber-500 mt-0.5">
-                        −${(Number(pendingDeduction) / 1_000_000).toFixed(6)} pending settlement
-                      </div>
-                      <div className="text-xs font-mono text-white mt-0.5">
-                        ≈ ${(Number(clearBalance - pendingDeduction) / 1_000_000).toFixed(6)} available
-                      </div>
-                    </>
-                  )}
+
+            {clearBalance !== null ? (
+              <div className="rounded-xl border border-[#1e1730] bg-[#0f0d1a] mb-4 divide-y divide-[#1e1730]">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs text-[#5a4f6a]">On-chain balance</span>
+                  <span className="text-sm font-mono text-emerald-400">${(Number(clearBalance) / 1_000_000).toFixed(2)} USDC</span>
                 </div>
-              ) : (
+                {pendingDeduction > 0n && (
+                  <>
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <span className="text-xs text-[#5a4f6a]">Pending settlement</span>
+                      <span className="text-sm font-mono text-amber-500">−${(Number(pendingDeduction) / 1_000_000).toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <span className="text-xs text-white font-medium">Available</span>
+                      <span className="text-sm font-mono text-white font-medium">${(Number(clearBalance - pendingDeduction) / 1_000_000).toFixed(2)} USDC</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-4">
+                <span className="text-xs text-[#5a4f6a]">Balance</span>
                 <CipherBadge />
-              )}
-            </div>
+              </div>
+            )}
+
             <div className="flex gap-3 mb-3">
               <button
                 onClick={async () => {
@@ -282,7 +287,7 @@ function BuyerPageInner() {
                 disabled={decryptLoading}
                 className="flex-1 border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
               >
-                {decryptLoading ? "Signing..." : clearBalance !== null ? "Refresh Balance" : "Reveal Balance"}
+                {decryptLoading ? "Signing..." : clearBalance !== null ? "Refresh" : "Reveal Balance"}
               </button>
               <button
                 onClick={() => address && withdrawBalance(address)}

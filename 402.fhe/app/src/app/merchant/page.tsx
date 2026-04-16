@@ -43,6 +43,11 @@ export default function MerchantPage() {
   const [settleStatus, setSettleStatus] = useState<"idle" | "settling" | "done">("idle");
   const [pendingTotal, setPendingTotal] = useState<number>(0);
 
+  // reset displayed revenue after withdrawal so stale handle isn't re-decrypted
+  useEffect(() => {
+    if (withdrawStatus === "done") setClearRevenue(null);
+  }, [withdrawStatus]);
+
   // registration state
   const [newApiId, setNewApiId] = useState<number | null>(null);
   const [regEndpoint, setRegEndpoint] = useState("");
