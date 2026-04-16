@@ -140,6 +140,9 @@ export default function MerchantPage() {
       });
       setPendingTotal(0);
       setSettleStatus("done");
+      // auto-refresh revenue so merchant sees updated earnings immediately
+      const updated = await decryptRevenue(address);
+      if (updated !== null) setClearRevenue(updated);
     } catch {
       setSettleStatus("idle");
     }

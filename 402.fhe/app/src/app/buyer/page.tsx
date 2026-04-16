@@ -211,7 +211,11 @@ function BuyerPageInner() {
         body: JSON.stringify({ address }),
       });
       setPendingCalls({});
+      setPendingDeduction(0n);
       setSettleStatus("done");
+      // auto-refresh balance so user sees the updated on-chain value immediately
+      const updated = await decryptBalance(address);
+      if (updated !== null) setClearBalance(updated);
     } catch {
       setSettleStatus("idle");
     }
@@ -394,7 +398,7 @@ function BuyerPageInner() {
                   <div className="mt-4 bg-[#0f0d1a] border border-[#1e1730] rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-                      <span className="text-xs text-emerald-400 font-medium">Response received · payment settled</span>
+                      <span className="text-xs text-emerald-400 font-medium">Response received · proof stored</span>
                     </div>
                     <pre className="text-xs font-mono text-[#9d8fae] overflow-auto max-h-48 leading-relaxed scrollbar-none" style={{ scrollbarWidth: "none" }}>
                       {JSON.stringify(results[api.id], null, 2)}

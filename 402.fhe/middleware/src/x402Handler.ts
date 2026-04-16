@@ -83,12 +83,6 @@ function getPendingDeduction(buyer: string): bigint {
   return total;
 }
 
-function clearProofs(buyer: string, apiId: number): number {
-  const key = proofKey(buyer, apiId);
-  const count = (proofStore.get(key) || []).length;
-  proofStore.delete(key);
-  return count;
-}
 
 async function settleByKey(key: string): Promise<number> {
   const proofs = proofStore.get(key) || [];
@@ -103,7 +97,6 @@ async function settleByKey(key: string): Promise<number> {
   await tx.wait();
   console.log(`settled: ${count} calls`);
 
-  releaseReserve(buyerAddress);
   return count;
 }
 
@@ -116,7 +109,6 @@ export async function settleAll(callerAddress?: string): Promise<number> {
   const apiIds: number[] = [];
   const buyers: string[] = [];
   const counts: number[] = [];
-  const buyersToRelease = new Set<string>();
 
   for (const key of keys) {
     const proofs = proofStore.get(key) || [];
@@ -138,7 +130,6 @@ export async function settleAll(callerAddress?: string): Promise<number> {
     apiIds.push(apiId);
     buyers.push(buyerAddress);
     counts.push(count);
-    buyersToRelease.add(buyerAddress.toLowerCase());
     total += count;
   }
 
@@ -148,11 +139,6 @@ export async function settleAll(callerAddress?: string): Promise<number> {
   const tx = await contract.batchSettle(apiIds, buyers, counts);
   await tx.wait();
   console.log(`settled ${total} calls in one tx`);
-
-  // release reserves for all buyers whose calls were settled
-  for (const buyer of buyersToRelease) {
-    releaseReserve(buyer);
-  }
 
   return total;
 }
@@ -212,9 +198,10 @@ const fhe402Middleware = (apiId: number) => {
         return res.status(402).json({ error: "insufficient balance" });
       }
 
-      // layer 2: reserve check — guards against concurrent calls before settlement
+      // layer 2: reserve check — guards against two simultaneous calls racing through canAfford
+      // before either proof is stored. reserve is per-call, released immediately after proof is stored.
       if (getReserved(payment.buyerAddress) > 0n) {
-        return res.status(402).json({ error: "balance reserved" });
+        return res.status(402).json({ error: "concurrent call in progress, retry" });
       }
 
       addReserve(payment.buyerAddress, price);
@@ -228,6 +215,9 @@ const fhe402Middleware = (apiId: number) => {
         signature: payment.signature,
         timestamp: Date.now(),
       });
+
+      // release immediately — the proof is stored, the race window is closed
+      releaseReserve(payment.buyerAddress);
 
       next();
     } catch (err) {
