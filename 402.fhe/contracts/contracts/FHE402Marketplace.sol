@@ -194,7 +194,9 @@ contract FHE402Marketplace is ZamaEthereumConfig {
         uint256 amount = abi.decode(abiEncodedCleartexts, (uint256));
 
         euint64 zeroed = FHE.asEuint64(0);
+        zeroed = FHE.allow(zeroed, merchant);
         zeroed = FHE.allowThis(zeroed);
+        zeroed = FHE.makePubliclyDecryptable(zeroed);
         revenue[merchant] = zeroed;
 
         withdrawalPending[merchant] = false;
@@ -237,7 +239,9 @@ contract FHE402Marketplace is ZamaEthereumConfig {
         uint256 amount = abi.decode(abiEncodedCleartexts, (uint256));
 
         euint64 zeroed = FHE.asEuint64(0);
+        zeroed = FHE.allow(zeroed, buyer);
         zeroed = FHE.allowThis(zeroed);
+        zeroed = FHE.makePubliclyDecryptable(zeroed);
         balances[buyer] = zeroed;
 
         withdrawalPending[buyer] = false;

@@ -88,6 +88,7 @@ export function useUserDecrypt() {
 
       if (!handle || handle === 0n) return 0n;
 
+
       const ethereum = (window as unknown as { ethereum?: unknown }).ethereum;
       const instance = await getFhevmInstance(ethereum);
       const { privateKey, publicKey } = instance.generateKeypair();
