@@ -22,18 +22,17 @@ interface PaymentHeader {
   signature: string;
 }
 
-// proof store: key is `buyer:apiId`, value is list of signed proofs
 interface Proof {
   buyerAddress: string;
+  merchantAddress: string;  // stored so merchant can trigger settle
   apiId: number;
+  price: bigint;            // stored so we can report pending deductions
   nonce: string;
   signature: string;
   timestamp: number;
 }
 
 const proofStore = new Map<string, Proof[]>();
-
-// in-memory reserve — still needed to guard against concurrent calls before settlement
 const reserved = new Map<string, bigint>();
 
 function proofKey(buyer: string, apiId: number): string {
@@ -48,7 +47,7 @@ function addProof(proof: Proof): void {
 
   // auto-settle if this buyer-api pair hits 50 pending calls
   if (existing.length >= 50) {
-    settleBuyerApi(proof.buyerAddress, proof.apiId).catch((err) => {
+    settleByKey(key).catch((err) => {
       console.error(`auto-settle failed for ${key}:`, err);
     });
   }
@@ -58,6 +57,17 @@ function getPendingCount(buyer: string, apiId: number): number {
   return (proofStore.get(proofKey(buyer, apiId)) || []).length;
 }
 
+// returns total pending deduction for a buyer across all apis
+function getPendingDeduction(buyer: string): bigint {
+  let total = 0n;
+  for (const [key, proofs] of proofStore.entries()) {
+    if (key.startsWith(buyer.toLowerCase() + ":")) {
+      for (const p of proofs) total += p.price;
+    }
+  }
+  return total;
+}
+
 function clearProofs(buyer: string, apiId: number): number {
   const key = proofKey(buyer, apiId);
   const count = (proofStore.get(key) || []).length;
@@ -65,40 +75,55 @@ function clearProofs(buyer: string, apiId: number): number {
   return count;
 }
 
-// settle all pending calls for a specific buyer+api pair
-async function settleBuyerApi(buyer: string, apiId: number): Promise<number> {
-  const count = clearProofs(buyer, apiId);
-  if (count === 0) return 0;
+async function settleByKey(key: string): Promise<number> {
+  const proofs = proofStore.get(key) || [];
+  if (proofs.length === 0) return 0;
 
-  console.log(`settling ${count} calls for buyer ${buyer} on api ${apiId}`);
-  const tx = await contract.batchSettle([apiId], [buyer], [count]);
+  const { buyerAddress, apiId } = proofs[0];
+  const count = proofs.length;
+  proofStore.delete(key);
+
+  console.log(`settling ${count} calls for buyer ${buyerAddress} on api ${apiId}`);
+  const tx = await contract.batchSettle([apiId], [buyerAddress], [count]);
   await tx.wait();
-  console.log(`batch settled: ${count} calls`);
+  console.log(`settled: ${count} calls`);
 
-  // release reserve
-  releaseReserve(buyer);
+  releaseReserve(buyerAddress);
   return count;
 }
 
-// settle everything in the proof store — used when a buyer or merchant triggers /settle
-export async function settleAll(filterAddress?: string): Promise<number> {
+// settle all proofs where the caller is either the buyer or the merchant
+// if no address given, settles everything
+export async function settleAll(callerAddress?: string): Promise<number> {
   const keys = Array.from(proofStore.keys());
   let total = 0;
 
   const apiIds: number[] = [];
   const buyers: string[] = [];
   const counts: number[] = [];
+  const buyersToRelease = new Set<string>();
 
   for (const key of keys) {
-    const [buyer, apiIdStr] = key.split(":");
-    if (filterAddress && buyer !== filterAddress.toLowerCase()) continue;
+    const proofs = proofStore.get(key) || [];
+    if (proofs.length === 0) continue;
 
-    const count = clearProofs(buyer, Number(apiIdStr));
-    if (count === 0) continue;
+    const { buyerAddress, merchantAddress, apiId } = proofs[0];
 
-    apiIds.push(Number(apiIdStr));
-    buyers.push(buyer);
+    // if caller specified, only settle proofs they're involved in
+    if (callerAddress) {
+      const caller = callerAddress.toLowerCase();
+      const isBuyer = buyerAddress.toLowerCase() === caller;
+      const isMerchant = merchantAddress.toLowerCase() === caller;
+      if (!isBuyer && !isMerchant) continue;
+    }
+
+    const count = proofs.length;
+    proofStore.delete(key);
+
+    apiIds.push(apiId);
+    buyers.push(buyerAddress);
     counts.push(count);
+    buyersToRelease.add(buyerAddress.toLowerCase());
     total += count;
   }
 
@@ -109,7 +134,11 @@ export async function settleAll(filterAddress?: string): Promise<number> {
   await tx.wait();
   console.log(`settled ${total} calls in one tx`);
 
-  if (filterAddress) releaseReserve(filterAddress);
+  // release reserves for all buyers whose calls were settled
+  for (const buyer of buyersToRelease) {
+    releaseReserve(buyer);
+  }
+
   return total;
 }
 
@@ -160,6 +189,7 @@ const fhe402Middleware = (apiId: number) => {
 
       const listing = await contract.listings(apiId);
       const price = BigInt(listing.price);
+      const merchantAddress: string = listing.merchant;
 
       // layer 1: onchain FHE balance check — eth_call, no gas
       const affordable = await contract.canAfford(apiId, payment.buyerAddress);
@@ -174,10 +204,11 @@ const fhe402Middleware = (apiId: number) => {
 
       addReserve(payment.buyerAddress, price);
 
-      // store the proof instead of queuing a settlement tx
       addProof({
         buyerAddress: payment.buyerAddress,
+        merchantAddress,
         apiId,
+        price,
         nonce: payment.nonce,
         signature: payment.signature,
         timestamp: Date.now(),
@@ -191,4 +222,4 @@ const fhe402Middleware = (apiId: number) => {
   };
 };
 
-export { fhe402Middleware, getPendingCount, settleBuyerApi };
+export { fhe402Middleware, getPendingCount, getPendingDeduction, settleByKey };

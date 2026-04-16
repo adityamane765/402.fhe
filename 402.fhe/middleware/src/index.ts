@@ -1,7 +1,7 @@
 import express from "express";
 import * as dotenv from "dotenv";
 import demoRoutes from "./demoApi";
-import { settleAll, getPendingCount } from "./x402Handler";
+import { settleAll, getPendingCount, getPendingDeduction } from "./x402Handler";
 import fs from "fs";
 import path from "path";
 
@@ -54,8 +54,7 @@ app.post("/register", (req, res) => {
   }
 });
 
-// settle pending proofs for a buyer or merchant address
-// either party can trigger this — no auth needed for prototype
+// settle pending proofs — caller can be buyer or merchant, we match both sides
 app.post("/settle", async (req, res) => {
   const { address } = req.body;
   try {
@@ -67,7 +66,7 @@ app.post("/settle", async (req, res) => {
   }
 });
 
-// how many unsettled calls are pending for an address
+// how many unsettled calls are pending for an address (works for both buyer and merchant)
 app.get("/pending/:address", (req, res) => {
   const routes = JSON.parse(fs.readFileSync(routesPath, "utf-8"));
   const address = req.params.address.toLowerCase();
@@ -78,7 +77,10 @@ app.get("/pending/:address", (req, res) => {
     if (count > 0) pending[Number(apiIdStr)] = count;
   }
 
-  res.json({ address, pending });
+  // total usdc pending deduction for this buyer — frontend uses this to show adjusted balance
+  const pendingDeduction = getPendingDeduction(address).toString();
+
+  res.json({ address, pending, pendingDeduction });
 });
 
 app.use(demoRoutes);

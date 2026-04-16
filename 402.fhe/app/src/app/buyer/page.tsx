@@ -76,6 +76,7 @@ function BuyerPageInner() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [clearBalance, setClearBalance] = useState<bigint | null>(null);
   const [pendingCalls, setPendingCalls] = useState<Record<number, number>>({});
+  const [pendingDeduction, setPendingDeduction] = useState<bigint>(0n);
   const [settleStatus, setSettleStatus] = useState<"idle" | "settling" | "done">("idle");
   const { decryptBalance, loading: decryptLoading, error: decryptError } = useUserDecrypt();
   const { withdrawBalance, status: withdrawStatus, error: withdrawError } = usePublicDecryptWithdraw();
@@ -95,7 +96,10 @@ function BuyerPageInner() {
     if (!address) return;
     fetch(`${MIDDLEWARE_URL}/pending/${address}`)
       .then((r) => r.json())
-      .then((data) => setPendingCalls(data.pending || {}))
+      .then((data) => {
+        setPendingCalls(data.pending || {});
+        setPendingDeduction(BigInt(data.pendingDeduction || "0"));
+      })
       .catch(() => {});
   }, [address]);
 
@@ -180,6 +184,14 @@ function BuyerPageInner() {
     try {
       const res = await callApi(path, apiId, address, signMessageAsync);
       setResults((p) => ({ ...p, [apiId]: res }));
+      // refresh pending counts after call
+      fetch(`${MIDDLEWARE_URL}/pending/${address}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setPendingCalls(data.pending || {});
+          setPendingDeduction(BigInt(data.pendingDeduction || "0"));
+        })
+        .catch(() => {});
     } catch (err: unknown) {
       setErrors((p) => ({ ...p, [apiId]: err instanceof Error ? err.message : "request failed" }));
     } finally {
@@ -240,9 +252,21 @@ function BuyerPageInner() {
             <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-4">
               <span className="text-sm text-[#5a4f6a]">Available balance</span>
               {clearBalance !== null ? (
-                <span className="text-sm font-mono text-emerald-400">
-                  ${(Number(clearBalance) / 1_000_000).toFixed(6)} USDC
-                </span>
+                <div className="text-right">
+                  <span className="text-sm font-mono text-emerald-400">
+                    ${(Number(clearBalance) / 1_000_000).toFixed(6)} USDC
+                  </span>
+                  {pendingDeduction > 0n && (
+                    <>
+                      <div className="text-xs font-mono text-amber-500 mt-0.5">
+                        −${(Number(pendingDeduction) / 1_000_000).toFixed(6)} pending settlement
+                      </div>
+                      <div className="text-xs font-mono text-white mt-0.5">
+                        ≈ ${(Number(clearBalance - pendingDeduction) / 1_000_000).toFixed(6)} available
+                      </div>
+                    </>
+                  )}
+                </div>
               ) : (
                 <CipherBadge />
               )}
