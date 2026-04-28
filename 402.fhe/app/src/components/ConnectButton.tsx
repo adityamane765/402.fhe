@@ -119,8 +119,10 @@ export default function ConnectButton() {
     <div className="relative" ref={pickerRef}>
       <button
         onClick={() => {
-          if (providers.length <= 1) {
-            handleConnect(providers[0]?.provider);
+          if (providers.length === 0) {
+            connect({ connector: injected() });
+          } else if (providers.length === 1) {
+            handleConnect(providers[0].provider);
           } else {
             setShowPicker((v) => !v);
           }
