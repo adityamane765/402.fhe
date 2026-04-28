@@ -201,8 +201,8 @@ export default function MerchantPage() {
   return (
     <main className="min-h-screen bg-[#0f0d1a] text-white">
       <nav className="border-b border-[#1e1730] px-6 py-4 flex justify-between items-center">
-        <Link href="/" className="font-mono text-sm text-[#5a4f6a] hover:text-violet-400 transition-colors">
-          ← 402.fhe
+        <Link href="/dapp" className="font-mono text-sm text-[#5a4f6a] hover:text-violet-400 transition-colors">
+          ← select role
         </Link>
         <ConnectButton />
       </nav>
