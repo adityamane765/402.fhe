@@ -67,7 +67,7 @@ export default function Home() {
         {/* headline */}
         <div className="text-center max-w-3xl mx-auto relative z-10">
           <h1 className="text-6xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.05]">
-            <span className="text-white">402.fhe</span>
+            <Link href="/dapp" className="text-white hover:text-violet-300 transition-colors">402.fhe</Link>
           </h1>
 
           <p
