@@ -7,16 +7,15 @@ import { useState, useEffect } from "react";
 
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "").toLowerCase();
 
-// fhEVM's eth_estimateGas returns 21M for our contract, exceeding wallet block gas caps.
-// patch all injected providers so whichever wallet the user picks gets the override.
-type EthProvider = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown>; _fhePatchedGas?: boolean };
-type WindowWithProviders = { ethereum?: EthProvider & { providers?: EthProvider[] } };
+// fhEVM's eth_estimateGas returns 21M for our contract, exceeding MetaMask's block gas cap.
+type EthProvider = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
 
-function patchProvider(provider: EthProvider) {
-  if (provider._fhePatchedGas) return;
-  provider._fhePatchedGas = true;
+function patchWindowEthereum() {
+  const win = window as unknown as { ethereum?: EthProvider };
+  if (typeof window === "undefined" || !win.ethereum) return;
+  const provider = win.ethereum;
   const original = provider.request.bind(provider);
-  provider.request = async ({ method, params }: { method: string; params?: unknown[] }) => {
+  win.ethereum!.request = async ({ method, params }: { method: string; params?: unknown[] }) => {
     if (Array.isArray(params) && params.length > 0) {
       const tx = params[0] as { to?: string; gas?: string };
       if (tx?.to?.toLowerCase() === CONTRACT_ADDRESS) {
@@ -30,13 +29,6 @@ function patchProvider(provider: EthProvider) {
     }
     return original({ method, params });
   };
-}
-
-function patchWindowEthereum() {
-  const win = window as unknown as WindowWithProviders;
-  if (typeof window === "undefined" || !win.ethereum) return;
-  const all = win.ethereum.providers ?? [win.ethereum];
-  all.forEach(patchProvider);
 }
 
 const config = createConfig({
