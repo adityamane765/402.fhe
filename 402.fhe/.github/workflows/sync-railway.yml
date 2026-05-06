@@ -1,0 +1,24 @@
+name: Sync middleware to Railway repo
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "middleware/**"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push middleware subtree to Railway repo
+        run: |
+          git config user.email "github-actions@github.com"
+          git config user.name "github-actions"
+          git remote add railway https://x-access-token:${{ secrets.RAILWAY_DEPLOY_TOKEN }}@github.com/adii-gif/402-fhe.git
+          git subtree push --prefix=middleware railway main
