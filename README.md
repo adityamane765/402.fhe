@@ -14,7 +14,7 @@ A confidential API marketplace built on [Zama fhEVM](https://www.zama.ai). Merch
 
 HTTP-native micropayments (x402) are gaining traction for AI agent economies. But every existing payment system requires a trusted intermediary who can see everything: who paid, how much, for what. For autonomous AI agents transacting at scale, this is sensitive business intelligence leaking by design.
 
-FHE removes the need for that trusted party — cryptographically, not just by policy. The operator runs the infrastructure but learns nothing about who is paying whom or for what. Operator blindness is enforced at the math layer, not the policy layer.
+FHE removes the need for that trusted party — cryptographically, not just by policy. The operator runs the infrastructure but learns nothing about who is paying whom or for what. Operator blindness is enforced at the math layer, not the policy layer
 
 ---
 
