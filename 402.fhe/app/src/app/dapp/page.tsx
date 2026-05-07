@@ -5,7 +5,6 @@ import { useState } from "react";
 const roles = [
   { index: 1, label: "buyer", hint: "agent / user", href: "/buyer" },
   { index: 2, label: "merchant", hint: "api provider", href: "/merchant" },
-  { index: 3, label: "operator", hint: "marketplace", href: "/operator" },
 ];
 
 export default function DappPage() {
