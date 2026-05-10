@@ -120,21 +120,23 @@ Acknowledged limitation: the in-memory reserve is per-process. Horizontal scalin
 
 The x402 protocol is scheme-extensible. This project introduces `fhe-402` alongside the existing `exact` and `upfront` schemes. Any x402-compatible endpoint can opt into FHE-enforced privacy without changing its API surface.
 
+For a deep dive into the state channel design, fraud prevention mechanics, and scaling path — see [docs/state-channels.md](docs/state-channels.md).
+
 ---
 
 ## Diagrams
 
 ### How a paid API call works
-![How a paid API call works](docs/Screenshot%202026-05-06%20at%2011.13.11%20PM.png)
+![How a paid API call works](docs/api_call.png)
 
 ### Payment flow — state channel settlement
-![Payment flow](docs/Screenshot%202026-05-06%20at%2011.13.24%20PM.png)
+![Payment flow](docs/payment_flow.png)
 
 ### Privacy guarantees
-![Privacy guarantees](docs/Screenshot%202026-05-06%20at%2011.13.01%20PM.png)
+![Privacy guarantees](docs/data_visibility.png)
 
 ### Withdrawal flow
-![Withdrawal flow](docs/Screenshot%202026-05-06%20at%2011.13.49%20PM.png)
+![Withdrawal flow](docs/withdrawal_flow.png)
 
 ---
 
