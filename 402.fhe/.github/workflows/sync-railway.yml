@@ -1,26 +1,38 @@
-name: Sync middleware to Railway repo
+name: Sync to Railway Repo
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "middleware/**"
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
+      - name: Debug token presence
+        run: |
+          if [ -z "${{ secrets.RAILWAY_DEPLOY_TOKEN }}" ]; then
+            echo "TOKEN IS EMPTY ❌"
+            exit 1
+          else
+            echo "TOKEN EXISTS ✅"
+          fi
+
       - name: Checkout main repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Push middleware to Railway repo
         run: |
-          git config user.email "github-actions@github.com"
-          git config user.name "github-actions"
-          git branch -D subtree-split 2>/dev/null || true
+          git config --global user.name "sync-bot"
+          git config --global user.email "sync@github.com"
+
+          cd 402.fhe/middleware
+          git init
+          git add -A
+          git commit -m "sync from main repo"
           git remote add railway https://x-access-token:${{ secrets.RAILWAY_DEPLOY_TOKEN }}@github.com/adii-gif/402-fhe.git
-          SPLIT=$(git subtree split --prefix=402.fhe/middleware HEAD)
-          git push railway ${SPLIT}:refs/heads/main --force
+          git push railway HEAD:main --force
