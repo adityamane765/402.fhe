@@ -1,30 +1,38 @@
-name: Sync 402.fhe to Railway Repo
+name: Sync middleware to Railway repo
 
 on:
   push:
     branches:
       - main
-    paths:
-      - '402.fhe/**'
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Debug token presence
+        run: |
+          if [ -z "${{ secrets.RAILWAY_DEPLOY_TOKEN }}" ]; then
+            echo "TOKEN IS EMPTY ❌"
+            exit 1
+          else
+            echo "TOKEN EXISTS ✅"
+          fi
+
+      - name: Checkout main repo
+        uses: actions/checkout@v3
         with:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Push 402.fhe subtree to Railway mirror
+      - name: Push middleware to Railway repo
         run: |
           git config --global user.name "sync-bot"
           git config --global user.email "sync@github.com"
 
-          # extract 402.fhe/ as a standalone branch
-          git subtree split --prefix=402.fhe -b subtree-split
-
-          # push that branch as main to the mirror, force so history doesn't conflict
-          git push https://jpegwarrior:${{ secrets.RAILWAY_REPO_TOKEN }}@github.com/jpegwarrior/402.fhe.git subtree-split:main --force
+          cd 402.fhe/middleware
+          git init
+          git add -A
+          git commit -m "sync from main repo"
+          git remote add railway https://x-access-token:${{ secrets.RAILWAY_DEPLOY_TOKEN }}@github.com/adii-gif/402-fhe.git
+          git push railway HEAD:main --force
