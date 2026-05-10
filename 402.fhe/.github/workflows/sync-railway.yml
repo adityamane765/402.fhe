@@ -16,9 +16,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Push middleware subtree to Railway repo
+      - name: Push middleware to Railway repo
         run: |
           git config user.email "github-actions@github.com"
           git config user.name "github-actions"
+          git branch -D subtree-split 2>/dev/null || true
           git remote add railway https://x-access-token:${{ secrets.RAILWAY_DEPLOY_TOKEN }}@github.com/adii-gif/402-fhe.git
-          git subtree push --prefix=middleware railway main
+          SPLIT=$(git subtree split --prefix=402.fhe/middleware HEAD)
+          git push railway ${SPLIT}:refs/heads/main --force
