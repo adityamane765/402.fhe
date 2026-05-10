@@ -19,7 +19,6 @@ function loadRoutes(): Record<string, RouteConfig> {
   }
 }
 
-
 // dynamic catch-all: look up apiId from routes.json at request time
 router.get("/api/*", (req: Request, res: Response, _next) => {
   const routes = loadRoutes();

@@ -34,7 +34,7 @@ function patchWindowEthereum() {
 const config = createConfig({
   chains: [sepolia],
   connectors: [injected()],
-  transports: { [sepolia.id]: http("https://rpc.ankr.com/eth_sepolia") },
+  transports: { [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com") },
 });
 
 export default function Providers({ children }: { children: React.ReactNode }) {
