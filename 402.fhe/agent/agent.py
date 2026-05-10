@@ -13,24 +13,36 @@ def main():
     print(f"agent: {address}")
     print(f"middleware: {middleware_url}")
     print()
+    print("prerequisites:")
+    print("  1. deposit USDC for this wallet on the dapp (buyer page)")
+    print("     → balance is encrypted on-chain as euint64")
+    print("  2. ensure APIs are listed and registered on the marketplace")
+    print("  3. run this script — agent pays per call, settles in one tx")
+    print()
 
     client = FHE402Client(private_key=key, middleware_url=middleware_url)
 
-    print("→ GET /api/weather")
-    weather = client.get("/api/weather")
-    print(f"  200 OK — proof stored off-chain, not yet settled")
-    print(f"  {json.dumps(weather, indent=2)[:300]}")
-    print()
+    apis = [
+        ("/api/weather",   "weather data"),
+        ("/api/prices",    "crypto prices"),
+        ("/api/fact",      "random fact"),
+        ("/api/sentiment", "fear & greed index"),
+    ]
 
-    print("→ GET /api/inference")
-    inference = client.get("/api/inference")
-    print(f"  200 OK — proof stored, not yet settled")
-    print(f"  {json.dumps(inference, indent=2)[:300]}")
-    print()
+    for path, label in apis:
+        print(f"→ GET {path}  ({label})")
+        try:
+            result = client.get(path)
+            print(f"  200 OK — proof stored off-chain, not yet settled")
+            print(f"  {json.dumps(result, indent=2)[:200]}")
+        except Exception as e:
+            print(f"  error: {e}")
+        print()
 
-    print("→ settling all pending calls on-chain...")
+    print(f"→ {len(apis)} calls made — 0 on-chain transactions yet")
+    print(f"→ settling all pending calls in one tx...")
     settled = client.settle()
-    print(f"  {settled} call(s) settled in one tx")
+    print(f"  {settled} call(s) settled in a single transaction")
 
 if __name__ == "__main__":
     main()

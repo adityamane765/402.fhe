@@ -21,4 +21,5 @@ jobs:
           git config user.email "github-actions@github.com"
           git config user.name "github-actions"
           git remote add railway https://x-access-token:${{ secrets.RAILWAY_DEPLOY_TOKEN }}@github.com/adii-gif/402-fhe.git
-          git subtree push --prefix=middleware railway main
+          SPLIT=$(git subtree split --prefix=middleware HEAD)
+          git push railway ${SPLIT}:refs/heads/main --force
