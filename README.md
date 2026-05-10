@@ -125,16 +125,16 @@ The x402 protocol is scheme-extensible. This project introduces `fhe-402` alongs
 ## Diagrams
 
 ### How a paid API call works
-![How a paid API call works](402.fhe/docs/Screenshot%202026-05-06%20at%2011.13.11%20PM.png)
+![How a paid API call works](docs/Screenshot%202026-05-06%20at%2011.13.11%20PM.png)
 
 ### Payment flow — state channel settlement
-![Payment flow](402.fhe/docs/Screenshot%202026-05-06%20at%2011.13.24%20PM.png)
+![Payment flow](docs/Screenshot%202026-05-06%20at%2011.13.24%20PM.png)
 
 ### Privacy guarantees
-![Privacy guarantees](402.fhe/docs/Screenshot%202026-05-06%20at%2011.13.01%20PM.png)
+![Privacy guarantees](docs/Screenshot%202026-05-06%20at%2011.13.01%20PM.png)
 
 ### Withdrawal flow
-![Withdrawal flow](402.fhe/docs/Screenshot%202026-05-06%20at%2011.13.49%20PM.png)
+![Withdrawal flow](docs/Screenshot%202026-05-06%20at%2011.13.49%20PM.png)
 
 ---
 
