@@ -54,6 +54,8 @@ export default function MerchantPage() {
   const [regPath, setRegPath] = useState("");
   const [regStatus, setRegStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [regError, setRegError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   // edit state — which apiId row is expanded for editing
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -87,6 +89,7 @@ export default function MerchantPage() {
     e.preventDefault();
     if (!name || !description || !price || !isConnected) return;
     const priceUnits = BigInt(Math.round(Number(price) * 1_000_000));
+    setSubmitting(true);
     try {
       const txHash = await listApi({
         address: CONTRACT_ADDRESS,
@@ -95,8 +98,10 @@ export default function MerchantPage() {
         args: [name, description, priceUnits],
       });
 
-      // wait for tx and read ApiListed event to get apiId
+      setSubmitting(false);
+      setConfirming(true);
       const receipt = await publicClient!.waitForTransactionReceipt({ hash: txHash });
+      setConfirming(false);
       const logs = await publicClient!.getLogs({
         address: CONTRACT_ADDRESS,
         event: parseAbiItem("event ApiListed(uint256 indexed id, address indexed merchant, string name, uint64 price)"),
@@ -112,6 +117,8 @@ export default function MerchantPage() {
       setName(""); setDescription(""); setPrice("");
     } catch (err) {
       console.error("listApi error:", err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -220,8 +227,8 @@ export default function MerchantPage() {
             Set your price per call in USDC. Buyers see the price — only your earnings stay private.
           </p>
 
-          {isListing ? (
-            <HoloPulse label="confirming on-chain" />
+          {submitting || isListing || confirming ? (
+            <HoloPulse label={confirming ? "confirming on-chain..." : isListing ? "broadcasting tx..." : "waiting for wallet..."} />
           ) : (
             <form onSubmit={handleListApi} className="flex flex-col gap-4">
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="API name (e.g. Weather API)" className={inputCls} />
