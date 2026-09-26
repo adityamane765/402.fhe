@@ -1,8 +1,5 @@
 # 402.fhe
 
-> Confidential API payments for the machine economy.  
-> The operator runs the infrastructure — and sees nothing.
-
 Merchants list APIs with public prices. AI agents pay per call using the x402 HTTP payment protocol. Buyer balances, merchant revenues, and usage patterns stay encrypted on-chain at all times. Operator blindness is enforced at the math layer, not the policy layer.
 
 NOTE: I used railway free plan for deploying the middleware initially, but I dont have the resources to keep it alive at all time times, so currently the middleware is not live, but you can use the below contract address and run all other resources locally to test it out, THANK YOU
