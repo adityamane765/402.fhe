@@ -5,21 +5,22 @@
 
 Merchants list APIs with public prices. AI agents pay per call using the x402 HTTP payment protocol. Buyer balances, merchant revenues, and usage patterns stay encrypted on-chain at all times. Operator blindness is enforced at the math layer, not the policy layer.
 
-**Live**
+NOTE: I used railway free plan for deploying the middleware initially, but I dont have the resources to keep it alive at all time times, so currently the middleware is not live, but you can use the below contract address and run all other resources locally to test it out, THANK YOU
+
+
+**Deployment**
 
 | | |
 |---|---|
-| Frontend | https://402-fhe.vercel.app |
-| Middleware | https://402-fhe-production.up.railway.app |
 | Contract | [`0x34e412625D...c0A5`](https://sepolia.etherscan.io/address/0x34e412625DF16F8397B31CD122C8320f85b5c0A5) on Ethereum Sepolia |
 
 ---
 
 ## The problem
 
-HTTP-native micropayments (x402) are gaining traction for AI agent economies. But every existing payment system requires a trusted intermediary who can see everything — who paid, how much, for what. For autonomous agents transacting at scale, that's sensitive business intelligence leaking by design.
+HTTP-native micropayments (x402) are gaining traction for AI agent economies. But every existing payment system requires a trusted intermediary who can see everything - who paid, how much, for what. For autonomous agents transacting at scale, that's sensitive business intelligence leaking.
 
-FHE removes the need for that trusted party. The operator runs the infrastructure but learns nothing about who is paying whom or for what. Not a policy claim — a math claim.
+FHE removes the need for that trusted party. The operator runs the infrastructure but learns nothing about who is paying whom or for what.
 
 ---
 
@@ -89,11 +90,7 @@ protocolFees      = FHE.add(protocolFees, FHE.select(affordable, protocolCut, 0)
 
 All three state updates are gated on the same encrypted `affordable` bool. If the buyer can't pay, nothing changes — and the operator can't tell either way.
 
-### 90/10 revenue split in cleartext
-
-`merchantCut = price * 9 / 10` is computed in cleartext arithmetic on the public price, before any FHE operation. The operator collects a predictable protocol fee on every call without ever needing to decrypt anything. The business model is designed around the privacy constraint, not despite it.
-
-### Self-serve withdrawals — no operator required
+### Self serve withdrawals — no operator required
 
 Every balance and revenue update calls `FHE.makePubliclyDecryptable(handle)` on-chain. When a user wants to withdraw:
 
@@ -199,18 +196,3 @@ After deploy: update `NEXT_PUBLIC_CONTRACT_ADDRESS` in Vercel and `CONTRACT_ADDR
 | Agent client | Python — `eth-account` + `requests` |
 
 ---
-
-## Roadmap
-
-- [x] **Phase 1** — Core marketplace: deposit, list API, settle, withdraw
-- [x] **Phase 2** — FHE state channels: off-chain proof accumulation, `batchSettle`, unilateral settlement
-- [ ] **Phase 3** — Formalize `fhe-402` as an x402 scheme extension (EIP or spec PR)
-- [ ] **Phase 4** — Redis-backed reserve map for horizontal middleware scale
-
----
-
-## Core thesis
-
-The novel value is not hiding data from observers. It's eliminating the need for a trusted intermediary who sees everything.
-
-FHE makes the marketplace operator cryptographically blind — not by policy, but by math.
