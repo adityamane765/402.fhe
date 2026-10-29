@@ -20,7 +20,7 @@ function loadRoutes(): Record<string, RouteConfig> {
 }
 
 // dynamic catch-all: look up apiId from routes.json at request time
-router.get("/api/*", (req: Request, res: Response, _next) => {
+router.get("/api/*", async (req: Request, res: Response, _next) => {
   const routes = loadRoutes();
   const reqPath = "/api/" + req.params[0];
 
@@ -33,16 +33,21 @@ router.get("/api/*", (req: Request, res: Response, _next) => {
   const [apiIdStr, config] = entry;
   const apiId = Number(apiIdStr);
 
-  fhe402Middleware(apiId)(req, res, async () => {
-    try {
-      const upstream = await fetch(config.endpoint);
-      const data = await upstream.json();
-      res.json(data);
-    } catch (err) {
-      console.error(`proxy error for apiId ${apiId}:`, err);
-      res.status(502).json({ error: "upstream error" });
-    }
-  });
+  try {
+    await fhe402Middleware(apiId)(req, res, async () => {
+      try {
+        const upstream = await fetch(config.endpoint);
+        const data = await upstream.json();
+        res.json(data);
+      } catch (err) {
+        console.error(`proxy error for apiId ${apiId}:`, err);
+        res.status(502).json({ error: "upstream error" });
+      }
+    });
+  } catch (err) {
+    console.error(`middleware failure for apiId ${apiId}:`, err);
+    if (!res.headersSent) res.status(500).json({ error: "middleware failure" });
+  }
 });
 
 export default router;

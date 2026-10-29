@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "tsc",
+    "test": "node --test -r ts-node/register src/*.test.ts",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts"
   },

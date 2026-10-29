@@ -18,6 +18,7 @@ interface Listing {
 
 export default function MarketplacePage() {
   const [routes, setRoutes] = useState<Record<string, { path: string; endpoint: string }>>({});
+  const [routesLoaded, setRoutesLoaded] = useState(false);
   const [search, setSearch] = useState("");
 
   // fetch route registry from middleware
@@ -25,7 +26,8 @@ export default function MarketplacePage() {
     fetch(`${MIDDLEWARE_URL}/routes`)
       .then((r) => r.json())
       .then(setRoutes)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setRoutesLoaded(true));
   }, []);
 
   const { data: nextApiId } = useReadContract({
@@ -50,7 +52,7 @@ export default function MarketplacePage() {
     .map((result, i) => {
       if (result.status !== "success" || !result.result) return null;
       const [merchant, name, description, price, active] = result.result as [string, string, string, bigint, boolean];
-      if (!active) return null;
+      if (!active || !routes[String(i)]) return null;
       return {
         id: i,
         merchant,
@@ -58,7 +60,7 @@ export default function MarketplacePage() {
         description,
         price,
         active,
-        path: routes[String(i)]?.path,
+        path: routes[String(i)].path,
       };
     })
     .filter(Boolean) as Listing[];
@@ -101,18 +103,18 @@ export default function MarketplacePage() {
           />
         </div>
 
-        {isLoading && (
+        {(isLoading || !routesLoaded) && (
           <div className="text-sm text-[#5a4f6a]">fetching listings from chain...</div>
         )}
 
-        {!isLoading && allListings.length === 0 && count > 0 && (
+        {!isLoading && routesLoaded && allListings.length === 0 && count > 0 && (
           <div className="text-sm text-[#5a4f6a]">no active listings found.</div>
         )}
-        {!isLoading && allListings.length > 0 && listings.length === 0 && (
+        {!isLoading && routesLoaded && allListings.length > 0 && listings.length === 0 && (
           <div className="text-sm text-[#5a4f6a]">no results for &quot;{search}&quot;</div>
         )}
 
-        {!isLoading && count === 0 && !isLoading && (
+        {!isLoading && routesLoaded && count === 0 && (
           <div className="text-sm text-[#5a4f6a]">no APIs listed yet. <Link href="/merchant" className="text-violet-400 hover:underline">List yours →</Link></div>
         )}
 

@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import { ChallengeStore } from "./challengeStore";
+import { SettlementLock } from "./settlementLock";
+import { settlementBatchSize } from "./settlementBatch";
+import { RouteConfig, toPublicApi } from "./catalog";
 
 dotenv.config();
 
 const ABI = [
-  "function canAfford(uint256 apiId, address buyer) returns (bool)",
   "function batchSettle(uint256[] apiIds, address[] buyers, uint256[] counts)",
   "function listings(uint256 id) view returns (address merchant, string name, string description, uint64 price, bool active)",
 ];
@@ -22,6 +25,18 @@ interface PaymentHeader {
   signature: string;
 }
 
+function isPaymentHeader(value: unknown): value is PaymentHeader {
+  if (!value || typeof value !== "object") return false;
+  const payment = value as Record<string, unknown>;
+  return (
+    typeof payment.buyerAddress === "string" &&
+    typeof payment.apiId === "number" &&
+    Number.isSafeInteger(payment.apiId) &&
+    typeof payment.nonce === "string" &&
+    typeof payment.signature === "string"
+  );
+}
+
 interface Proof {
   buyerAddress: string;
   merchantAddress: string;  // stored so merchant can trigger settle
@@ -33,7 +48,8 @@ interface Proof {
 }
 
 const proofStore = new Map<string, Proof[]>();
-const reserved = new Map<string, bigint>();
+const challengeStore = new ChallengeStore();
+const settlementLock = new SettlementLock();
 
 function proofKey(buyer: string, apiId: number): string {
   return `${buyer.toLowerCase()}:${apiId}`;
@@ -87,17 +103,24 @@ function getPendingDeduction(buyer: string): bigint {
 async function settleByKey(key: string): Promise<number> {
   const proofs = proofStore.get(key) || [];
   if (proofs.length === 0) return 0;
+  if (!settlementLock.tryAcquire([key])) return 0;
 
-  const { buyerAddress, apiId } = proofs[0];
-  const count = proofs.length;
-  proofStore.delete(key);
+  try {
+    const { buyerAddress, apiId } = proofs[0];
+    const count = settlementBatchSize(proofs.length);
 
-  console.log(`settling ${count} calls for buyer ${buyerAddress} on api ${apiId}`);
-  const tx = await contract.batchSettle([apiId], [buyerAddress], [count]);
-  await tx.wait();
-  console.log(`settled: ${count} calls`);
+    console.log(`settling ${count} calls for buyer ${buyerAddress} on api ${apiId}`);
+    const tx = await contract.batchSettle([apiId], [buyerAddress], [count]);
+    await tx.wait();
+    const remaining = (proofStore.get(key) || []).slice(count);
+    if (remaining.length > 0) proofStore.set(key, remaining);
+    else proofStore.delete(key);
+    console.log(`settled: ${count} calls`);
 
-  return count;
+    return count;
+  } finally {
+    settlementLock.release([key]);
+  }
 }
 
 // settle all proofs where the caller is either the buyer or the merchant
@@ -109,6 +132,7 @@ export async function settleAll(callerAddress?: string): Promise<number> {
   const apiIds: number[] = [];
   const buyers: string[] = [];
   const counts: number[] = [];
+  const selected: Array<{ key: string; count: number }> = [];
 
   for (const key of keys) {
     const proofs = proofStore.get(key) || [];
@@ -124,36 +148,36 @@ export async function settleAll(callerAddress?: string): Promise<number> {
       if (!isBuyer && !isMerchant) continue;
     }
 
-    const count = proofs.length;
-    proofStore.delete(key);
+    const count = settlementBatchSize(proofs.length);
 
     apiIds.push(apiId);
     buyers.push(buyerAddress);
     counts.push(count);
+    selected.push({ key, count });
     total += count;
   }
 
   if (apiIds.length === 0) return 0;
+  const selectedKeys = selected.map(({ key }) => key);
+  if (!settlementLock.tryAcquire(selectedKeys)) {
+    throw new Error("settlement already in progress");
+  }
 
-  console.log(`batch settling ${total} calls across ${apiIds.length} pairs`);
-  const tx = await contract.batchSettle(apiIds, buyers, counts);
-  await tx.wait();
-  console.log(`settled ${total} calls in one tx`);
+  try {
+    console.log(`batch settling ${total} calls across ${apiIds.length} pairs`);
+    const tx = await contract.batchSettle(apiIds, buyers, counts);
+    await tx.wait();
+    for (const { key, count } of selected) {
+      const remaining = (proofStore.get(key) || []).slice(count);
+      if (remaining.length > 0) proofStore.set(key, remaining);
+      else proofStore.delete(key);
+    }
+    console.log(`settled ${total} calls in one tx`);
 
-  return total;
-}
-
-function getReserved(buyer: string): bigint {
-  return reserved.get(buyer.toLowerCase()) || 0n;
-}
-
-function addReserve(buyer: string, amount: bigint): void {
-  const current = getReserved(buyer);
-  reserved.set(buyer.toLowerCase(), current + amount);
-}
-
-function releaseReserve(buyer: string): void {
-  reserved.delete(buyer.toLowerCase());
+    return total;
+  } finally {
+    settlementLock.release(selectedKeys);
+  }
 }
 
 function verifySignature(payment: PaymentHeader): boolean {
@@ -166,45 +190,71 @@ function verifySignature(payment: PaymentHeader): boolean {
   }
 }
 
+export async function getPublicCatalog(routes: Record<string, RouteConfig>) {
+  const records = await Promise.all(
+    Object.entries(routes).map(async ([id, route]) => {
+      const apiId = Number(id);
+      const listing = await contract.listings(apiId);
+      return toPublicApi(apiId, route, {
+        merchant: listing.merchant,
+        name: listing.name,
+        description: listing.description,
+        price: BigInt(listing.price),
+        active: listing.active,
+      });
+    }),
+  );
+  return records.filter((record) => record.available);
+}
+
 const fhe402Middleware = (apiId: number) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const paymentRaw = req.header("X-Payment");
 
     if (!paymentRaw) {
+      const nonce = ethers.hexlify(ethers.randomBytes(16));
+      challengeStore.remember(nonce, apiId);
       return res.status(402).json({
         scheme: "fhe-402",
         version: 1,
         contract: contractAddress,
         network: "sepolia",
         apiId,
-        nonce: ethers.hexlify(ethers.randomBytes(16))
+        nonce,
       });
     }
 
+    let decoded: unknown;
     try {
-      const payment: PaymentHeader = JSON.parse(Buffer.from(paymentRaw, "base64").toString());
+      decoded = JSON.parse(Buffer.from(paymentRaw, "base64").toString());
+    } catch {
+      return res.status(400).json({ error: "malformed payment header" });
+    }
 
-      if (!verifySignature(payment)) {
-        return res.status(401).json({ error: "invalid signature" });
-      }
+    if (!isPaymentHeader(decoded)) {
+      return res.status(400).json({ error: "malformed payment header" });
+    }
+    const payment = decoded;
 
+    if (payment.apiId !== apiId) {
+      return res.status(401).json({ error: "payment challenge does not match route" });
+    }
+
+    if (!verifySignature(payment)) {
+      return res.status(401).json({ error: "invalid signature" });
+    }
+
+    if (!challengeStore.consume(payment.nonce, apiId)) {
+      return res.status(401).json({ error: "payment challenge expired or already used" });
+    }
+
+    try {
       const listing = await contract.listings(apiId);
+      if (!listing.active) {
+        return res.status(410).json({ error: "API listing is inactive" });
+      }
       const price = BigInt(listing.price);
       const merchantAddress: string = listing.merchant;
-
-      // layer 1: onchain FHE balance check — eth_call, no gas
-      const affordable = await contract.canAfford(apiId, payment.buyerAddress);
-      if (!affordable) {
-        return res.status(402).json({ error: "insufficient balance" });
-      }
-
-      // layer 2: reserve check — guards against two simultaneous calls racing through canAfford
-      // before either proof is stored. reserve is per-call, released immediately after proof is stored.
-      if (getReserved(payment.buyerAddress) > 0n) {
-        return res.status(402).json({ error: "concurrent call in progress, retry" });
-      }
-
-      addReserve(payment.buyerAddress, price);
 
       addProof({
         buyerAddress: payment.buyerAddress,
@@ -216,13 +266,10 @@ const fhe402Middleware = (apiId: number) => {
         timestamp: Date.now(),
       });
 
-      // release immediately — the proof is stored, the race window is closed
-      releaseReserve(payment.buyerAddress);
-
       next();
     } catch (err) {
       console.error("middleware error:", err);
-      return res.status(400).json({ error: "malformed payment header" });
+      return res.status(502).json({ error: "payment authorization unavailable" });
     }
   };
 };

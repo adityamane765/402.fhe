@@ -2,12 +2,14 @@
 import { useState, useEffect } from "react";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
-import { CONTRACT_ADDRESS, MARKETPLACE_ABI, USDC_ADDRESS, USDC_ABI } from "@/lib/contract";
+import { CONTRACT_ADDRESS, MARKETPLACE_ABI } from "@/lib/contract";
 import { useUserDecrypt } from "@/lib/useUserDecrypt";
 import { usePublicDecryptWithdraw } from "@/lib/usePublicDecrypt";
 import ConnectButton from "@/components/ConnectButton";
 import { HoloPulse } from "@/components/HoloPulse";
 import Link from "next/link";
+
+const MIDDLEWARE_URL = process.env.NEXT_PUBLIC_MIDDLEWARE_URL || "http://localhost:3001";
 
 interface MyApi {
   id: number;
@@ -41,6 +43,7 @@ export default function MerchantPage() {
   const { withdrawRevenue, status: withdrawStatus, error: withdrawError } = usePublicDecryptWithdraw();
 
   const [settleStatus, setSettleStatus] = useState<"idle" | "settling" | "done">("idle");
+  const [settleError, setSettleError] = useState("");
   const [pendingTotal, setPendingTotal] = useState<number>(0);
 
   // reset displayed revenue after withdrawal so stale handle isn't re-decrypted
@@ -122,8 +125,6 @@ export default function MerchantPage() {
     }
   };
 
-  const MIDDLEWARE_URL = process.env.NEXT_PUBLIC_MIDDLEWARE_URL || "http://localhost:3001";
-
   // fetch pending unsettled calls across all apis for this merchant
   useEffect(() => {
     if (!address) return;
@@ -139,18 +140,24 @@ export default function MerchantPage() {
   const handleSettle = async () => {
     if (!address) return;
     setSettleStatus("settling");
+    setSettleError("");
     try {
-      await fetch(`${MIDDLEWARE_URL}/settle`, {
+      const response = await fetch(`${MIDDLEWARE_URL}/settle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address }),
       });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "settlement failed");
+      }
       setPendingTotal(0);
       setSettleStatus("done");
       // auto-refresh revenue so merchant sees updated earnings immediately
       const updated = await decryptRevenue(address);
       if (updated !== null) setClearRevenue(updated);
-    } catch {
+    } catch (error) {
+      setSettleError(error instanceof Error ? error.message : "settlement failed");
       setSettleStatus("idle");
     }
   };
@@ -335,6 +342,7 @@ export default function MerchantPage() {
             {withdrawStatus === "requesting" ? "Requesting..." : withdrawStatus === "decrypting" ? "Decrypting via KMS..." : withdrawStatus === "submitting" ? "Submitting..." : withdrawStatus === "done" ? "Withdrawn ✓" : "Withdraw"}
           </button>
           {withdrawError && <p className="mt-2 text-xs text-red-400">{withdrawError}</p>}
+          {settleError && <p className="mt-2 text-xs text-red-400">{settleError}</p>}
         </div>
 
         {/* my APIs */}

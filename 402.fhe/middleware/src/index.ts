@@ -1,7 +1,7 @@
 import express from "express";
 import * as dotenv from "dotenv";
 import demoRoutes from "./demoApi";
-import { settleAll, getPendingDeduction, getPendingForAddress } from "./x402Handler";
+import { settleAll, getPendingDeduction, getPendingForAddress, getPublicCatalog } from "./x402Handler";
 import fs from "fs";
 import path from "path";
 
@@ -31,9 +31,18 @@ app.get("/routes", (_req, res) => {
   }
 });
 
+app.get("/v1/apis", async (_req, res) => {
+  try {
+    const routes = JSON.parse(fs.readFileSync(routesPath, "utf-8"));
+    res.json({ items: await getPublicCatalog(routes) });
+  } catch (err) {
+    console.error("catalog error:", err);
+    res.status(502).json({ error: "catalog unavailable" });
+  }
+});
+
 // merchant self-registration
-// NOTE: new registrations only take effect for new requests.
-// Already-loaded routes in demoApi.ts require a process restart to update.
+// New registrations take effect on the next request; demoApi reads this file dynamically.
 app.post("/register", (req, res) => {
   const { apiId, path: apiPath, endpoint } = req.body;
 
@@ -62,6 +71,10 @@ app.post("/settle", async (req, res) => {
     res.json({ ok: true, settled: count });
   } catch (err) {
     console.error("settle error:", err);
+    if (err instanceof Error && err.message === "settlement already in progress") {
+      res.status(409).json({ error: err.message });
+      return;
+    }
     res.status(500).json({ error: "settlement failed" });
   }
 });

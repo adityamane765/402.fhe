@@ -72,12 +72,14 @@ function BuyerPageInner() {
   const [loading, setLoading] = useState<{ [key: number]: boolean }>({});
   const [errors, setErrors] = useState<{ [key: number]: string }>({});
   const [routes, setRoutes] = useState<Record<string, { path: string }>>({});
+  const [routesLoaded, setRoutesLoaded] = useState(false);
   const [callHistory, setCallHistory] = useState<CallRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [clearBalance, setClearBalance] = useState<bigint | null>(null);
   const [pendingCalls, setPendingCalls] = useState<Record<number, number>>({});
   const [pendingDeduction, setPendingDeduction] = useState<bigint>(0n);
   const [settleStatus, setSettleStatus] = useState<"idle" | "settling" | "done">("idle");
+  const [settleError, setSettleError] = useState("");
   const { decryptBalance, loading: decryptLoading, error: decryptError } = useUserDecrypt();
   const { withdrawBalance, status: withdrawStatus, error: withdrawError } = usePublicDecryptWithdraw();
 
@@ -88,7 +90,8 @@ function BuyerPageInner() {
     fetch(`${MIDDLEWARE_URL}/routes`)
       .then((r) => r.json())
       .then(setRoutes)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setRoutesLoaded(true));
   }, []);
 
   // fetch pending unsettled call count for this buyer
@@ -145,6 +148,7 @@ function BuyerPageInner() {
       const [, name, description, price, active] = result.result as [string, string, string, bigint, boolean];
       if (!active) return null;
       const path = routes[String(i)]?.path ?? null;
+      if (!path) return null;
       return { id: i, name, description, price, path };
     })
     .filter(Boolean) as ApiEntry[];
@@ -204,19 +208,25 @@ function BuyerPageInner() {
   const handleSettle = async () => {
     if (!address) return;
     setSettleStatus("settling");
+    setSettleError("");
     try {
-      await fetch(`${MIDDLEWARE_URL}/settle`, {
+      const response = await fetch(`${MIDDLEWARE_URL}/settle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address }),
       });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "settlement failed");
+      }
       setPendingCalls({});
       setPendingDeduction(0n);
       setSettleStatus("done");
       // auto-refresh balance so user sees the updated on-chain value immediately
       const updated = await decryptBalance(address);
       if (updated !== null) setClearBalance(updated);
-    } catch {
+    } catch (error) {
+      setSettleError(error instanceof Error ? error.message : "settlement failed");
       setSettleStatus("idle");
     }
   };
@@ -312,6 +322,7 @@ function BuyerPageInner() {
             )}
             {decryptError && <p className="mt-2 text-xs text-red-400">{decryptError}</p>}
             {withdrawError && <p className="mt-2 text-xs text-red-400">{withdrawError}</p>}
+            {settleError && <p className="mt-2 text-xs text-red-400">{settleError}</p>}
           </div>
         )}
 
@@ -353,11 +364,11 @@ function BuyerPageInner() {
             Each call signs a payment proof — no gas. Settlement happens on-chain in the background.
           </p>
 
-          {apisLoading && (
+          {(apisLoading || !routesLoaded) && (
             <p className="text-sm text-[#5a4f6a]">loading APIs from chain...</p>
           )}
 
-          {!apisLoading && apis.length === 0 && (
+          {!apisLoading && routesLoaded && apis.length === 0 && (
             <p className="text-sm text-[#5a4f6a]">
               No APIs available yet. <Link href="/marketplace" className="text-violet-400 hover:underline">Browse marketplace →</Link>
             </p>

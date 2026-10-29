@@ -41,6 +41,8 @@ class FHE402Client:
             "buyerAddress": self.account.address,
             "apiId": challenge["apiId"],
             "nonce": challenge["nonce"],
-            "signature": "0x" + sig.signature.hex(),
+            "signature": sig.signature.hex()
+            if sig.signature.hex().startswith("0x")
+            else "0x" + sig.signature.hex(),
         }
         return base64.b64encode(json.dumps(payload).encode()).decode()
