@@ -84,10 +84,10 @@ export default function MarketplacePage() {
         </Link>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-12">
-        <div className="mb-10">
+      <div className="max-w-4xl mx-auto px-5 sm:px-6 py-10 sm:py-12">
+        <div className="mb-9">
           <span className="text-[10px] font-mono text-violet-500 tracking-widest uppercase mb-2 block">live on sepolia</span>
-          <h1 className="text-3xl font-bold text-white">API Marketplace</h1>
+          <h1 className="text-4xl font-semibold tracking-[-0.04em] text-white">API Marketplace</h1>
           <p className="text-sm text-[#5a4f6a] mt-2">
             {count > 0 ? `${allListings.length} active API${allListings.length !== 1 ? "s" : ""}` : "loading..."}
           </p>
@@ -99,7 +99,7 @@ export default function MarketplacePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or API ID..."
-            className="w-full bg-[#12102a] border border-[#1e1730] rounded-xl px-4 py-3 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-transparent"
+            className="dashboard-field px-4 py-3 text-sm"
           />
         </div>
 
@@ -120,14 +120,14 @@ export default function MarketplacePage() {
 
         <div className="flex flex-col gap-4">
           {listings.map((api) => (
-            <div key={api.id} className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6">
+            <div key={api.id} className="dashboard-card p-5 sm:p-6 transition-transform hover:-translate-y-0.5">
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-mono text-[#3a2f4a]">#{api.id}</span>
                     <h2 className="font-semibold text-white">{api.name}</h2>
                   </div>
-                  <p className="text-sm text-[#5a4f6a]">{api.description}</p>
+                  <p className="dashboard-copy">{api.description}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-lg font-mono font-semibold text-violet-400">
@@ -150,7 +150,7 @@ export default function MarketplacePage() {
                 </div>
                 <Link
                   href={`/buyer?apiId=${api.id}`}
-                  className="text-xs border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-3 py-1.5 transition-colors"
+                  className="dashboard-action px-3.5 py-2 text-xs"
                 >
                   Call API →
                 </Link>

@@ -69,3 +69,135 @@ body {
 .animate-spin-slow {
   animation: spin-slow 18s linear infinite;
 }
+
+/* Functional app cards: buyer, merchant, marketplace, and operator only. */
+.dashboard-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(139, 92, 246, 0.16);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.09), transparent 34%),
+    linear-gradient(145deg, rgba(22, 18, 39, 0.98), rgba(15, 13, 27, 0.98));
+  box-shadow: 0 18px 55px rgba(4, 2, 12, 0.24);
+}
+
+.dashboard-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.55), transparent);
+}
+
+.dashboard-card[data-tone="emerald"] {
+  border-color: rgba(16, 185, 129, 0.15);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(16, 185, 129, 0.07), transparent 34%),
+    linear-gradient(145deg, rgba(18, 31, 34, 0.92), rgba(15, 13, 27, 0.98));
+}
+
+.dashboard-card[data-tone="emerald"]::before {
+  background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.45), transparent);
+}
+
+.dashboard-card[data-tone="pink"] {
+  border-color: rgba(236, 72, 153, 0.14);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(236, 72, 153, 0.07), transparent 34%),
+    linear-gradient(145deg, rgba(29, 17, 34, 0.94), rgba(15, 13, 27, 0.98));
+}
+
+.dashboard-card[data-tone="pink"]::before {
+  background: linear-gradient(90deg, transparent, rgba(244, 114, 182, 0.42), transparent);
+}
+
+.dashboard-kicker {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #8b7aa0;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.625rem;
+  line-height: 1rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.dashboard-copy {
+  color: #958aa3;
+  font-size: 0.875rem;
+  line-height: 1.45rem;
+}
+
+.dashboard-panel {
+  border: 1px solid rgba(139, 92, 246, 0.14);
+  border-radius: 0.9rem;
+  background: rgba(8, 7, 16, 0.46);
+}
+
+.dashboard-empty {
+  border: 1px dashed rgba(139, 92, 246, 0.22);
+  border-radius: 0.9rem;
+  background: rgba(8, 7, 16, 0.34);
+  color: #766b84;
+  padding: 1.1rem 1.2rem;
+  font-size: 0.875rem;
+}
+
+.dashboard-field {
+  width: 100%;
+  border: 1px solid rgba(139, 92, 246, 0.16);
+  border-radius: 0.8rem;
+  background: rgba(7, 6, 14, 0.58);
+  color: #f5f3ff;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.dashboard-field::placeholder {
+  color: #574c65;
+}
+
+.dashboard-field:focus {
+  border-color: rgba(139, 92, 246, 0.7);
+  background: rgba(9, 7, 18, 0.82);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.dashboard-action {
+  border: 1px solid rgba(139, 92, 246, 0.42);
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.26), rgba(91, 33, 182, 0.13));
+  color: #c4b5fd;
+  font-weight: 600;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.dashboard-action:hover:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.72);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.38), rgba(91, 33, 182, 0.2));
+  color: #ede9fe;
+  transform: translateY(-1px);
+}
+
+.dashboard-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.dashboard-card[data-tone="emerald"] .dashboard-action {
+  border-color: rgba(16, 185, 129, 0.38);
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.25), rgba(6, 95, 70, 0.12));
+  color: #6ee7b7;
+}
+
+.dashboard-card[data-tone="emerald"] .dashboard-action:hover:not(:disabled) {
+  border-color: rgba(52, 211, 153, 0.68);
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.36), rgba(6, 95, 70, 0.2));
+  color: #d1fae5;
+}
+
+.dashboard-card[data-tone="emerald"] .dashboard-field:focus {
+  border-color: rgba(16, 185, 129, 0.64);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}

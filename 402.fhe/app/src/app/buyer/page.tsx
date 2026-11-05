@@ -247,25 +247,26 @@ function BuyerPageInner() {
         <ConnectButton />
       </nav>
 
-      <div className="max-w-2xl mx-auto px-6 py-12">
-        <div className="mb-10">
+      <div className="max-w-3xl mx-auto px-5 sm:px-6 py-10 sm:py-12">
+        <div className="mb-9">
           <span className="text-[10px] font-mono text-violet-500 tracking-widest uppercase mb-2 block">agent / user</span>
-          <h1 className="text-3xl font-bold text-white">Buyer</h1>
+          <h1 className="text-4xl font-semibold tracking-[-0.04em] text-white">Buyer</h1>
         </div>
 
         {/* encrypted balance */}
         {mounted && isConnected && (
-          <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-base font-semibold text-white">Your Balance</h2>
-              <span className="text-[10px] font-mono text-violet-600 uppercase tracking-widest">fhe-encrypted</span>
+          <div className="dashboard-card p-5 sm:p-6 mb-5">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <span className="dashboard-kicker">Private balance</span>
+                <h2 className="text-lg font-semibold text-white">Your balance</h2>
+                <p className="dashboard-copy mt-1">Encrypted on-chain. Reveal it with your wallet.</p>
+              </div>
+              <span className="text-[9px] font-mono text-violet-300 uppercase tracking-[0.14em] rounded-full border border-violet-400/20 bg-violet-400/[0.07] px-2.5 py-1">FHE encrypted</span>
             </div>
-            <p className="text-xs text-[#5a4f6a] mb-5">
-              Stored as a ciphertext on-chain. Only you can decrypt it — the operator never sees your balance.
-            </p>
 
             {clearBalance !== null ? (
-              <div className="rounded-xl border border-[#1e1730] bg-[#0f0d1a] mb-4 divide-y divide-[#1e1730]">
+              <div className="dashboard-panel mb-4 divide-y divide-violet-400/10">
                 <div className="flex items-center justify-between px-4 py-3">
                   <span className="text-xs text-[#5a4f6a]">On-chain balance</span>
                   <span className="text-sm font-mono text-emerald-400">${(Number(clearBalance) / 1_000_000).toFixed(2)} USDC</span>
@@ -284,8 +285,8 @@ function BuyerPageInner() {
                 )}
               </div>
             ) : (
-              <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-4">
-                <span className="text-xs text-[#5a4f6a]">Balance</span>
+              <div className="dashboard-panel flex items-center justify-between p-4 mb-4">
+                <span className="text-xs text-[#958aa3]">Current balance</span>
                 <CipherBadge />
               </div>
             )}
@@ -299,14 +300,14 @@ function BuyerPageInner() {
                   }
                 }}
                 disabled={decryptLoading}
-                className="flex-1 border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
+                className="dashboard-action flex-1 px-4 py-2.5 text-sm"
               >
                 {decryptLoading ? "Signing..." : clearBalance !== null ? "Refresh" : "Reveal Balance"}
               </button>
               <button
                 onClick={() => address && withdrawBalance(address)}
                 disabled={withdrawStatus === "requesting" || withdrawStatus === "decrypting" || withdrawStatus === "submitting" || withdrawStatus === "done"}
-                className="flex-1 border border-[#1e1730] text-[#5a4f6a] hover:text-violet-400 hover:border-violet-800/60 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
+                className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-2.5 text-sm text-[#8f849d] transition-colors hover:border-violet-400/30 hover:text-violet-300 disabled:opacity-40"
               >
                 {withdrawStatus === "requesting" ? "Requesting..." : withdrawStatus === "decrypting" ? "Decrypting..." : withdrawStatus === "submitting" ? "Submitting..." : withdrawStatus === "done" ? "Withdrawn ✓" : "Withdraw"}
               </button>
@@ -327,11 +328,10 @@ function BuyerPageInner() {
         )}
 
         {/* deposit */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
-          <h2 className="text-base font-semibold text-white mb-2">Deposit USDC</h2>
-          <p className="text-sm text-[#5a4f6a] mb-5">
-            Deposit once — your balance is encrypted on-chain. Each API call deducts from it with no extra gas.
-          </p>
+        <div className="dashboard-card p-5 sm:p-6 mb-5">
+          <span className="dashboard-kicker">Funding</span>
+          <h2 className="text-lg font-semibold text-white">Deposit USDC</h2>
+          <p className="dashboard-copy mt-1 mb-5">Fund your encrypted balance for paid calls.</p>
           {depositStatus !== "idle" && <DepositSteps status={depositStatus} />}
           <form onSubmit={handleDeposit} className="flex gap-3">
             <input
@@ -339,12 +339,12 @@ function BuyerPageInner() {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Amount (e.g. 10)"
-              className="flex-1 bg-[#0f0d1a] border border-[#1e1730] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-transparent"
+              className="dashboard-field flex-1 px-4 py-3 text-sm"
             />
             <button
               type="submit"
               disabled={depositStatus !== "idle" || !isConnected}
-              className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30"
+              className="dashboard-action px-5 py-3 text-sm"
             >
               {depositLabel}
             </button>
@@ -353,24 +353,23 @@ function BuyerPageInner() {
             <p className="mt-3 text-sm text-emerald-400">Deposit confirmed. Your balance is now encrypted on-chain.</p>
           )}
           {!isConnected && (
-            <p className="mt-3 text-sm text-[#5a4f6a]">Connect your wallet to deposit.</p>
+            <p className="mt-3 text-xs text-[#766b84]">Connect wallet to deposit.</p>
           )}
         </div>
 
         {/* call APIs */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
-          <h2 className="text-base font-semibold text-white mb-2">Call APIs</h2>
-          <p className="text-sm text-[#5a4f6a] mb-6">
-            Each call signs a payment proof — no gas. Settlement happens on-chain in the background.
-          </p>
+        <div className="dashboard-card p-5 sm:p-6 mb-5">
+          <span className="dashboard-kicker">Paid requests</span>
+          <h2 className="text-lg font-semibold text-white">Call APIs</h2>
+          <p className="dashboard-copy mt-1 mb-5">Sign each call. Settle usage later in one batch.</p>
 
           {(apisLoading || !routesLoaded) && (
             <p className="text-sm text-[#5a4f6a]">loading APIs from chain...</p>
           )}
 
           {!apisLoading && routesLoaded && apis.length === 0 && (
-            <p className="text-sm text-[#5a4f6a]">
-              No APIs available yet. <Link href="/marketplace" className="text-violet-400 hover:underline">Browse marketplace →</Link>
+            <p className="dashboard-empty">
+              No callable APIs. <Link href="/marketplace" className="text-violet-300 hover:text-violet-200">Browse marketplace →</Link>
             </p>
           )}
 
@@ -378,8 +377,8 @@ function BuyerPageInner() {
             {apis.map((api) => (
               <div
                 key={api.id}
-                className={`border rounded-xl p-5 transition-colors ${
-                  focusedApiId === api.id ? "border-violet-700/60 bg-violet-950/20" : "border-[#1e1730]"
+                className={`dashboard-panel p-4 sm:p-5 transition-colors ${
+                  focusedApiId === api.id ? "border-violet-500/50 bg-violet-500/[0.06]" : "hover:border-violet-400/25"
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
@@ -399,7 +398,7 @@ function BuyerPageInner() {
                       onClick={() => api.path && handleCallApi(api.path, api.id)}
                       disabled={loading[api.id] || !isConnected || !api.path}
                       title={!api.path ? "Not yet registered with middleware" : undefined}
-                      className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-30"
+                      className="dashboard-action px-4 py-2 text-sm"
                     >
                       {loading[api.id] ? "Calling..." : !api.path ? "Unregistered" : "Call API"}
                     </button>
@@ -426,8 +425,8 @@ function BuyerPageInner() {
 
         {/* call history */}
         {mounted && isConnected && (
-          <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#1e1730] flex items-center gap-2">
+          <div className="dashboard-card overflow-hidden">
+            <div className="px-5 sm:px-6 py-4 border-b border-violet-400/10 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse inline-block" />
               <h2 className="text-sm font-medium text-white">Call History</h2>
               <span className="ml-auto text-xs text-[#3a2f4a] font-mono">{callHistory.length} total</span>

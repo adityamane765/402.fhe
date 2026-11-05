@@ -118,18 +118,15 @@ export default function OperatorPage() {
       </nav>
 
       <div className="max-w-3xl mx-auto px-6 py-12">
-        <div className="mb-10">
+        <div className="mb-9">
           <span className="text-[10px] font-mono text-pink-500 tracking-widest uppercase mb-2 block">operator</span>
-          <h1 className="text-3xl font-bold text-white mb-3">Operator Dashboard</h1>
-          <p className="text-[#5a4f6a] leading-relaxed max-w-xl">
-            All balances and revenues are encrypted — this view shows participation and settlement activity.
-            Withdrawals are now self-serve: merchants and buyers fulfill their own withdrawals via KMS decryption in their browser.
-          </p>
+          <h1 className="text-4xl font-semibold tracking-[-0.04em] text-white mb-3">Operator Dashboard</h1>
+          <p className="dashboard-copy max-w-xl">Monitor public activity without access to encrypted balances or revenue.</p>
         </div>
 
         {/* withdrawal activity */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden mb-6">
-          <div className="px-6 py-4 border-b border-[#1e1730] flex items-center gap-2">
+        <div className="dashboard-card overflow-hidden mb-5" data-tone="pink">
+          <div className="px-5 sm:px-6 py-4 border-b border-pink-400/10 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
             <h2 className="text-sm font-medium text-white">Withdrawal Activity</h2>
             <span className="ml-auto text-xs text-[#3a2f4a] font-mono">
@@ -174,10 +171,10 @@ export default function OperatorPage() {
         </div>
 
         {/* participants table */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden mb-6">
-          <div className="px-6 py-4 border-b border-[#1e1730]">
+        <div className="dashboard-card overflow-hidden mb-5" data-tone="pink">
+          <div className="px-5 sm:px-6 py-4 border-b border-pink-400/10">
             <h2 className="text-sm font-medium text-white">What the operator sees</h2>
-            <p className="text-[10px] text-[#3a2f4a] mt-0.5">all financial data is encrypted — operator is blind</p>
+            <p className="text-[10px] text-[#75697f] mt-0.5">Balances and revenue remain ciphertexts.</p>
           </div>
           <table className="w-full text-sm">
             <thead>
@@ -217,8 +214,8 @@ export default function OperatorPage() {
         </div>
 
         {/* settled calls feed */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#1e1730] flex items-center gap-2">
+        <div className="dashboard-card overflow-hidden" data-tone="pink">
+          <div className="px-5 sm:px-6 py-4 border-b border-pink-400/10 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse inline-block" />
             <h2 className="text-sm font-medium text-white">Settled Calls</h2>
             <span className="ml-auto text-xs text-[#3a2f4a] font-mono">{settleEvents.length} total</span>
@@ -238,9 +235,7 @@ export default function OperatorPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-xs text-[#3a2f4a] text-center font-mono">
-          addresses from <code>Deposited</code> + <code>ApiListed</code> events · live
-        </p>
+        <p className="mt-5 text-[10px] text-[#574c61] text-center font-mono">Live from contract events.</p>
       </div>
     </main>
   );

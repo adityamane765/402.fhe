@@ -210,7 +210,7 @@ export default function MerchantPage() {
     }
   };
 
-  const inputCls = "w-full bg-[#0f0d1a] border border-[#1e1730] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#3a2f4a] focus:outline-none focus:ring-2 focus:ring-violet-700 focus:border-transparent";
+  const inputCls = "dashboard-field px-4 py-3 text-sm";
 
   return (
     <main className="min-h-screen bg-[#0f0d1a] text-white">
@@ -221,18 +221,17 @@ export default function MerchantPage() {
         <ConnectButton />
       </nav>
 
-      <div className="max-w-2xl mx-auto px-6 py-12">
-        <div className="mb-10">
+      <div className="max-w-3xl mx-auto px-5 sm:px-6 py-10 sm:py-12">
+        <div className="mb-9">
           <span className="text-[10px] font-mono text-emerald-500 tracking-widest uppercase mb-2 block">API provider</span>
-          <h1 className="text-3xl font-bold text-white">Merchant</h1>
+          <h1 className="text-4xl font-semibold tracking-[-0.04em] text-white">Merchant</h1>
         </div>
 
         {/* list API */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6 mb-6">
-          <h2 className="text-base font-semibold text-white mb-2">List an API</h2>
-          <p className="text-sm text-[#5a4f6a] mb-5">
-            Set your price per call in USDC. Buyers see the price — only your earnings stay private.
-          </p>
+        <div className="dashboard-card p-5 sm:p-6 mb-5" data-tone="emerald">
+          <span className="dashboard-kicker">New listing</span>
+          <h2 className="text-lg font-semibold text-white">List an API</h2>
+          <p className="dashboard-copy mt-1 mb-5">Set a public price per call. Revenue stays encrypted.</p>
 
           {submitting || isListing || confirming ? (
             <HoloPulse label={confirming ? "confirming on-chain..." : isListing ? "broadcasting tx..." : "waiting for wallet..."} />
@@ -244,7 +243,7 @@ export default function MerchantPage() {
               <button
                 type="submit"
                 disabled={!isConnected}
-                className="border border-emerald-800/60 text-emerald-400 hover:bg-emerald-950/30 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30"
+                className="dashboard-action px-5 py-3 text-sm"
               >
                 List API
               </button>
@@ -256,11 +255,10 @@ export default function MerchantPage() {
           )}
 
           {listed && newApiId !== null && regStatus !== "done" && (
-            <div className="mt-5 border border-[#1e1730] rounded-xl p-5">
+            <div className="dashboard-panel mt-5 p-5">
               <h3 className="text-sm font-medium text-white mb-1">Register your backend URL</h3>
               <p className="text-xs text-[#5a4f6a] mb-4">
-                Your API was assigned ID <code className="text-violet-400 font-mono">#{newApiId}</code>.
-                Tell the middleware where to proxy requests.
+                API <code className="text-violet-400 font-mono">#{newApiId}</code> is listed. Add its public path and upstream URL.
               </p>
               <form onSubmit={handleRegister} className="flex flex-col gap-3">
                 <input
@@ -280,7 +278,7 @@ export default function MerchantPage() {
                 <button
                   type="submit"
                   disabled={regStatus === "loading"}
-                  className="border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2.5 text-sm transition-colors disabled:opacity-30"
+                  className="dashboard-action px-5 py-3 text-sm"
                 >
                   {regStatus === "loading" ? "Registering..." : "Register URL"}
                 </button>
@@ -297,10 +295,12 @@ export default function MerchantPage() {
         </div>
 
         {/* revenue */}
-        <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl p-6">
-          <h2 className="text-base font-semibold text-white mb-4">Revenue</h2>
-          <div className="flex items-center justify-between p-4 bg-[#0f0d1a] rounded-xl border border-[#1e1730] mb-4">
-            <span className="text-sm text-[#5a4f6a]">Your earnings</span>
+        <div className="dashboard-card p-5 sm:p-6" data-tone="emerald">
+          <span className="dashboard-kicker">Private earnings</span>
+          <h2 className="text-lg font-semibold text-white">Revenue</h2>
+          <p className="dashboard-copy mt-1 mb-5">Reveal, settle, or withdraw with your wallet.</p>
+          <div className="dashboard-panel flex items-center justify-between p-4 mb-4">
+            <span className="text-sm text-[#958aa3]">Current revenue</span>
             {clearRevenue !== null ? (
               <span className="text-sm font-mono text-emerald-400">
                 ${(Number(clearRevenue) / 1_000_000).toFixed(6)} USDC
@@ -317,14 +317,11 @@ export default function MerchantPage() {
               }
             }}
             disabled={decryptLoading || !isConnected}
-            className="w-full border border-violet-800/60 text-violet-400 hover:bg-violet-950/40 rounded-lg px-5 py-2 text-sm transition-colors disabled:opacity-30 mb-4"
+            className="dashboard-action w-full px-5 py-2.5 text-sm mb-3"
           >
             {decryptLoading ? "Signing..." : clearRevenue !== null ? "Refresh Revenue" : "Reveal Revenue"}
           </button>
           {decryptError && <p className="mb-3 text-xs text-red-400">{decryptError}</p>}
-          <p className="text-xs text-[#3a2f4a] mb-5">
-            Revenue is stored as an encrypted euint64. Sign with your wallet — the relayer decrypts only for you.
-          </p>
           {pendingTotal > 0 && (
             <button
               onClick={handleSettle}
@@ -347,8 +344,8 @@ export default function MerchantPage() {
 
         {/* my APIs */}
         {mounted && isConnected && (
-          <div className="bg-[#12102a] border border-[#1e1730] rounded-2xl overflow-hidden mt-6">
-            <div className="px-6 py-4 border-b border-[#1e1730] flex items-center gap-2">
+          <div className="dashboard-card overflow-hidden mt-5" data-tone="emerald">
+            <div className="px-5 sm:px-6 py-4 border-b border-emerald-400/10 flex items-center gap-2">
               <h2 className="text-sm font-medium text-white">My Listed APIs</h2>
               <span className="ml-auto text-xs text-[#3a2f4a] font-mono">{myApis.length} total</span>
             </div>
